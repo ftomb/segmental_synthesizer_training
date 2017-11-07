@@ -1,4 +1,5 @@
 from tensorflow.python.framework import graph_util
+from random import shuffle
 import tensorflow as tf
 import numpy as np
 import pickle
@@ -20,59 +21,72 @@ def load_output_title(title):
 def weight(d1, d2):
 	return tf.Variable(tf.random_normal([d1, d2],stddev=np.sqrt(1/d1)))
 
+def rnn_layer(X, recurrent_nodes):
+	rnn_cell = tf.nn.rnn_cell.GRUCell(num_units=recurrent_nodes, activation=tf.nn.elu)
+	return tf.nn.dynamic_rnn(cell=rnn_cell, inputs=X, dtype=tf.float32)
+
 def combine(L, W):
 	return tf.matmul(L, W)
 
-def activate(x):
+def activate(L):
 	alpha = 1.6732632423543772848170429916717
 	scale = 1.0507009873554804934193349852946
-	return scale*tf.where(x>=0.0, x, alpha*tf.nn.elu(x))
+	return scale*tf.where(L>=0.0, L, alpha*tf.nn.elu(L))
 
 def calculate_rmse(prediction, target):
 	return tf.sqrt(tf.reduce_mean(tf.squared_difference(prediction, target)))
-
+	
 def momentum_optimizer(loss):
 	return tf.train.MomentumOptimizer(0.01, momentum=0.9, use_nesterov=True).minimize(loss)
 
-def FFNN(D):
+def RNN(D):
 
 	X = tf.placeholder(tf.float32, [None, D[0]], name='X')
 	W = [weight(D[i], D[i+1]) for i in range(len(D)-1)]
 
 	L = []
 	L_ = X
-	for i in range(0, len(D)-2):
-		_L = activate(combine(L_, W[i]))
+	for i in range(0, len(D)-3):
+		_L = activate(tf.matmul(L_, W[i]))
 		L.append(_L)
 		L_ = _L
 
-	Y_ = tf.identity(combine(L[-1], W[-1]), name='Y_')
-	Y = tf.placeholder(tf.float32, [None, D[-1]])
+	n_frames = tf.placeholder(tf.int32, name='n_frames')
+	L1 = tf.reshape(L[-1], [-1, n_frames, D[-3]])
+
+	outputs, states = rnn_layer(L1, D[-2])
+	outputs = tf.reshape(outputs, [-1, D[-2]])
+
+	Y_ = tf.matmul(outputs, W[-1], name='Y_')
+	Y = tf.placeholder(tf.float32, [None, D[-1]], name='Y')
 
 	loss = calculate_rmse(Y_, Y)
 	optimizer = momentum_optimizer(loss)
 
-	return X, Y_, Y, loss, optimizer
+	return X, n_frames, Y_, Y, loss, optimizer
+
+
 
 titles = load_titles()
-titles = titles[50:]
+corpus_split = 1
+test_titles = sorted(titles)[:corpus_split]
+titles = sorted(titles)[corpus_split:]
+f = open('FFNN_models/'+'test_titles'+'.txt', 'a')
+f.write(str(test_titles))
 
-input_len = len(load_input_title(titles[0])[0])
-output_len = len(load_output_title(titles[0])[0])
+X_d = len(load_input_title(titles[0])[0])
+Y_d = len(load_output_title(titles[0])[0])
 
 # Define dimensions of the neural network
-X_d = input_len
-Y_d = output_len
 
-layer_size = 1024
-n_layers = 16
-
-h_layers = [layer_size for i in range(0, n_layers)]
-D = [X_d]+h_layers+[Y_d]
+forward_nodes = 500
+recurrent_nodes = 500
+forward_layers = 10
+h_layers = [forward_nodes for i in range(0, forward_layers)]
+D = [X_d]+h_layers+[recurrent_nodes]+[Y_d]
 print(D)
 
-X, Y_, Y, loss, optimizer = FFNN(D)
-
+X, n_frames, Y_, Y, loss, optimizer = RNN(D)
 
 with tf.Session() as sess:
 	sess.run(tf.global_variables_initializer())
@@ -82,14 +96,17 @@ with tf.Session() as sess:
 	while True:
 		e += 1
 		epoch_loss = 0
+		shuffle(titles)
 		f = open('FFNN_models/'+'output_log'+'.txt', 'a')
 
 		for title in titles:
 
 			input_vector = load_input_title(title)
+			length = len(input_vector)
 			ouput_vector = load_output_title(title)
+			print(title, length)
 
-			_, current_loss = sess.run([optimizer, loss], {X:input_vector, Y:ouput_vector})
+			_, current_loss = sess.run([optimizer, loss], {X:input_vector, n_frames:length, Y:ouput_vector})
 			epoch_loss += current_loss
 
 		print('Epoch:', e)
