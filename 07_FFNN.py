@@ -4,18 +4,21 @@ import tensorflow as tf
 import numpy as np
 import pickle
 import math
+import sys
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
 
-def load_titles():
-	return [fn[:-7] for fn in os.listdir('normalized_input_features/')]
+def load_titles(normalized_input_features_path, normalized_output_features_path):
+	input_titles = [os.path.splitext(fn)[0] for fn in os.listdir(normalized_input_features_path) if os.path.splitext(fn)[1] == '.pickle']
+	output_titles = [os.path.splitext(fn)[0] for fn in os.listdir(normalized_output_features_path) if os.path.splitext(fn)[1] == '.bap_mgc']
+	return set(input_titles).intersection(output_titles)
 
-def load_input_title(title):
-	with open('normalized_input_features/' + title + '.pickle', "rb") as g: 
+def load_input_title(title, normalized_input_features_path):
+	with open(normalized_input_features_path + title + '.pickle', "rb") as g: 
 		return pickle.load(g)
 
-def load_output_title(title):
-	with open('normalized_output_features/' + title + '.bap_mgc', "rb") as g: 
+def load_output_title(title, normalized_output_features_path):
+	with open(normalized_output_features_path + title + '.bap_mgc', "rb") as g: 
 		return pickle.load(g)
 
 def weight(d1, d2):
@@ -65,73 +68,86 @@ def RNN(D):
 
 	return X, n_frames, Y_, Y, loss, optimizer
 
+if __name__ == '__main__':
+
+	normalized_input_features_path = sys.argv[1]
+	normalized_output_features_path = sys.argv[2]
+	FFNN_models_path = sys.argv[3]
+
+	titles = list(load_titles(normalized_input_features_path, normalized_output_features_path))
+	print(titles)
+
+	corpus_split = 1
+	test_titles = sorted(titles)[:corpus_split]
+	titles = sorted(titles)[corpus_split:]
+	f = open(FFNN_models_path+'test_titles'+'.txt', 'a')
+	f.write(str(test_titles))
 
 
-titles = load_titles()
-corpus_split = 1
-test_titles = sorted(titles)[:corpus_split]
-titles = sorted(titles)[corpus_split:]
-f = open('FFNN_models/'+'test_titles'+'.txt', 'a')
-f.write(str(test_titles))
 
-X_d = len(load_input_title(titles[0])[0])
-Y_d = len(load_output_title(titles[0])[0])
+	X_d = len(load_input_title(titles[0], normalized_input_features_path)[0])
+	Y_d = len(load_output_title(titles[0], normalized_output_features_path)[0])
 
-# Define dimensions of the neural network
 
-forward_nodes = 500
-recurrent_nodes = 500
-forward_layers = 10
-h_layers = [forward_nodes for i in range(0, forward_layers)]
-D = [X_d]+h_layers+[recurrent_nodes]+[Y_d]
-print(D)
+	# Define dimensions of the neural network
 
-X, n_frames, Y_, Y, loss, optimizer = RNN(D)
+	forward_nodes = 20
+	recurrent_nodes = 20
+	forward_layers = 5
+	h_layers = [forward_nodes for i in range(0, forward_layers)]
+	D = [X_d]+h_layers+[recurrent_nodes]+[Y_d]
+	print(D)
 
-with tf.Session() as sess:
-	sess.run(tf.global_variables_initializer())
-	e = 0
-	best_loss = math.inf
+	X, n_frames, Y_, Y, loss, optimizer = RNN(D)
 
-	while True:
-		e += 1
-		epoch_loss = 0
-		shuffle(titles)
-		f = open('FFNN_models/'+'output_log'+'.txt', 'a')
+	with tf.Session() as sess:
+		sess.run(tf.global_variables_initializer())
+		e = 0
+		best_loss = math.inf
 
-		for title in titles:
+		while True:
+			e += 1
+			epoch_loss = 0
+			shuffle(titles)
+			f = open(FFNN_models_path+'output_log'+'.txt', 'a')
 
-			input_vector = load_input_title(title)
-			length = len(input_vector)
-			ouput_vector = load_output_title(title)
-			print(title, length)
+			for title in titles:
 
-			_, current_loss = sess.run([optimizer, loss], {X:input_vector, n_frames:length, Y:ouput_vector})
-			epoch_loss += current_loss
+				input_vector = load_input_title(title, normalized_input_features_path)
+				length = len(input_vector)
+				ouput_vector = load_output_title(title, normalized_output_features_path)
+				print(title, length)
 
-		print('Epoch:', e)
-		print('Loss:', epoch_loss)
+				_, current_loss = sess.run([optimizer, loss], {X:input_vector, n_frames:length, Y:ouput_vector})
+				epoch_loss += current_loss
 
-		f.write('Epoch:' + str(e) + '\n')
-		f.write('Loss:' + str(epoch_loss) + '\n\n')
+			print('Epoch:', e)
+			print('Loss:', epoch_loss)
 
-		if epoch_loss < best_loss:
-			best_loss = epoch_loss
+			f.write('Epoch:' + str(e) + '\n')
+			f.write('Loss:' + str(epoch_loss) + '\n\n')
 
-			saver = tf.train.Saver()
-			saver.save(sess, 'FFNN_models/'+'models')
+			if epoch_loss < best_loss:
+				best_loss = epoch_loss
 
-			print('Saving frozen graph...')
+				saver = tf.train.Saver()
+				saver.save(sess, FFNN_models_path+'models')
 
-			graph = tf.get_default_graph()
-			input_graph_def = graph.as_graph_def()
+				print('Saving frozen graph...')
 
-			output_graph_def = graph_util.convert_variables_to_constants(sess, input_graph_def, ['Y_']) 
+				graph = tf.get_default_graph()
+				input_graph_def = graph.as_graph_def()
 
-			with tf.gfile.GFile('FFNN_models/'+'frozen_model', "wb") as f:
-				f.write(output_graph_def.SerializeToString())
+				output_graph_def = graph_util.convert_variables_to_constants(sess, input_graph_def, ['Y_']) 
 
-		if epoch_loss == 0.0:
-			break
+				with tf.gfile.GFile(FFNN_models_path+'frozen_model', "wb") as f:
+					f.write(output_graph_def.SerializeToString())
+
+			if epoch_loss == 0.0:
+				break
+			
+			if e == 5:
+				break
+
 
 
