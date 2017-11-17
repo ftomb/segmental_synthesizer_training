@@ -1,0 +1,133 @@
+
+task copy_wav(type: Copy) {
+	// to be replaced with ark data
+    from "wav/"
+    into "$buildDir/wav"
+}
+
+task copy_textgrid(type: Copy) {
+	// to be replaced with ark data
+    from "textgrid/"
+    into "$buildDir/textgrid"
+}
+
+task resample(type: Exec) {
+	dependsOn copy_wav
+	def wavDir = "$buildDir/wav/"
+	def wav_Dir = "$buildDir/wav_/"
+	workingDir 'scripts/'
+    commandLine 'python3', '00_resample.py', wavDir, wav_Dir
+    doFirst {
+        file(wav_Dir).mkdirs()
+    }
+}
+
+task extract_f0(type: Exec) {
+	dependsOn resample
+	def wav_Dir = "$buildDir/wav_/"
+	def f0Dir = "$buildDir/f0/"
+	workingDir 'scripts/'
+    commandLine 'python3', '00a_extract_f0.py', wav_Dir, f0Dir
+    doFirst {
+        file(f0Dir).mkdirs()
+    }
+}
+
+task extract_output_features(type: Exec) {
+	dependsOn resample
+	def wav_Dir = "$buildDir/wav_/"
+	def outputFeaturesDir = "$buildDir/output_features/"
+	def extractionTimesDir = "$buildDir/extraction_times/"
+	workingDir 'scripts/'
+    commandLine 'python3', '01_extract_output_features.py', wav_Dir, outputFeaturesDir, extractionTimesDir
+    doFirst {
+        file(outputFeaturesDir).mkdirs()
+        file(extractionTimesDir).mkdirs()
+    }
+}
+
+task generate_phone_dict(type: Exec) {
+	dependsOn copy_textgrid
+	def textGridDir = "$buildDir/textgrid/"
+	def phoneDictDir = "$buildDir/phone_dictionary/"
+	workingDir 'scripts/'
+    commandLine 'python3', '02_phone_dict.py', textGridDir, phoneDictDir
+    doFirst {
+        file(phoneDictDir).mkdirs()
+    }
+}
+
+task extract_input_features(type: Exec) {
+	dependsOn extract_f0
+	dependsOn extract_output_features
+	dependsOn generate_phone_dict
+	def timesDir = "$buildDir/extraction_times/"
+	def textGridDir = "$buildDir/textgrid/"
+	def phoneDictDir = "$buildDir/phone_dictionary/"
+	def f0Dir = "$buildDir/f0/"
+	def inputFeaturesDir = "$buildDir/input_features/"
+	workingDir 'scripts/'
+    commandLine 'python3', '03_extract_input_features.py', timesDir, textGridDir, phoneDictDir, f0Dir, inputFeaturesDir
+    doFirst {
+        file(inputFeaturesDir).mkdirs()
+    }
+}
+
+task calculate_input_mean(type: Exec) {
+	dependsOn extract_input_features
+	def inputFeaturesDir = "$buildDir/input_features/"
+	def meanStdDir = "$buildDir/mean_std/"
+	workingDir 'scripts/'
+    commandLine 'python3', '04_calculate_input_mean_std.py', inputFeaturesDir, meanStdDir
+    doFirst {
+        file(meanStdDir).mkdirs()
+    }
+}
+
+task calculate_output_mean(type: Exec) {
+	dependsOn extract_output_features
+	def outputFeaturesDir = "$buildDir/output_features/"
+	def meanStdDir = "$buildDir/mean_std/"
+	workingDir 'scripts/'
+    commandLine 'python3', '04_calculate_output_mean_std.py', outputFeaturesDir, meanStdDir
+    doFirst {
+        file(meanStdDir).mkdirs()
+    }
+}
+
+task normalize_input_features(type: Exec) {
+	dependsOn calculate_input_mean
+	def meanStdDir = "$buildDir/mean_std/"
+	def intputFeaturesDir = "$buildDir/input_features/"
+	def normInputFeaturesDir = "$buildDir/normalized_input_features/"
+	workingDir 'scripts/'
+    commandLine 'python3', '05_normalize_input_features.py', meanStdDir, intputFeaturesDir, normInputFeaturesDir
+    doFirst {
+        file(normInputFeaturesDir).mkdirs()
+    }
+}
+
+task normalize_output_features(type: Exec) {
+	dependsOn calculate_output_mean
+	def meanStdDir = "$buildDir/mean_std/"
+	def outputFeaturesDir = "$buildDir/output_features/"
+	def normoutputFeaturesDir = "$buildDir/normalized_output_features/"
+	workingDir 'scripts/'
+    commandLine 'python3', '06_normalize_output_features.py', meanStdDir, outputFeaturesDir, normoutputFeaturesDir
+    doFirst {
+        file(normoutputFeaturesDir).mkdirs()
+    }
+}
+
+task trainNetwork(type: Exec) {
+	dependsOn normalize_input_features
+	dependsOn normalize_output_features
+	def normInputFeaturesDir = "$buildDir/normalized_input_features/"
+	def normoutputFeaturesDir = "$buildDir/normalized_output_features/"
+	def networkOutputsDir = "$buildDir/FFNN_models/"
+	workingDir 'scripts/'
+    commandLine 'python3', '07_FFNN.py', normInputFeaturesDir, normoutputFeaturesDir, networkOutputsDir
+    doFirst {
+        file(networkOutputsDir).mkdirs()
+    }
+}
