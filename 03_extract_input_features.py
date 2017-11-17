@@ -1,6 +1,8 @@
+from multiprocessing import Pool
 import numpy as np 
 import pickle
 import tgt
+import sys
 import os
 
 
@@ -24,54 +26,78 @@ def process_phones(l):
 	
 	return l, l_ph_befs, l_ph_bef_befs, l_ph_afts, l_ph_aft_afts, l_perc, l_ph_lens
 
+def extract_features(title, times_path, textgrid_path, phone_dict_path, f0_path, input_features_path):
 
-os.makedirs('input_features')
-titles = []
-for fn in os.listdir('wav_/'):
-	titles.append(fn[:-4])
+	# get the times 
+	with open(times_path + title + ".times", "rb") as f: 
+		ts = pickle.load(f)
 
-for title in titles:
-	try:
-		# get the times 
-		with open('extraction_times/' + title + ".times", "rb") as f: 
-			ts = pickle.load(f)
+	tgname = textgrid_path + title + '.TextGrid'
+	tg = tgt.read_textgrid(tgname)
+	phones_tier = tg.get_tier_by_name('phones')
 
-		tgname = 'textgrid/' + title + '.TextGrid'
-		tg = tgt.read_textgrid(tgname)
-		phones_tier = tg.get_tier_by_name('phones')
+	phone_list = []
+	for t in ts:
+		try:
+			phone_list.append(phones_tier.get_annotations_by_time(t)[0].text)
+		except:
+			phone_list.append('sil')
 
-		phone_list = []
-		for t in ts:
-			try:
-				phone_list.append(phones_tier.get_annotations_by_time(t)[0].text)
-			except:
-				phone_list.append('sil')
+	ph, ph_b, ph_b_b, ph_a, ph_a_a, ph_perc, ph_len = process_phones(phone_list)
 
-		ph, ph_b, ph_b_b, ph_a, ph_a_a, ph_perc, ph_len = process_phones(phone_list)
+	with open(phone_dict_path + 'phone_dictionary.dict', "rb") as f:
+		ph_dict = pickle.load(f)
 
-		with open('phone_dictionary/phone_dictionary.dict', "rb") as f: 
-			ph_dict = pickle.load(f)
+	hot_ph = np.array([ph_dict[i] for i in ph])
+	hot_ph_b = np.array([ph_dict[i] for i in ph_b])
+	hot_ph_b_b = np.array([ph_dict[i] for i in ph_b_b])
+	hot_ph_a = np.array([ph_dict[i] for i in ph_a])
+	hot_ph_a_a = np.array([ph_dict[i] for i in ph_a_a])
 
-		hot_ph = np.array([ph_dict[i] for i in ph])
-		hot_ph_b = np.array([ph_dict[i] for i in ph_b])
-		hot_ph_b_b = np.array([ph_dict[i] for i in ph_b_b])
-		hot_ph_a = np.array([ph_dict[i] for i in ph_a])
-		hot_ph_a_a = np.array([ph_dict[i] for i in ph_a_a])
+	with open(f0_path + title + '.f0') as f:
+		lf0 = np.log2([[float(l.strip())] for l in f], dtype=np.float64)
 
-		with open('f0/' + title + '.f0') as f:
-			lf0 = np.log2([[float(l.strip())] for l in f], dtype=np.float64)
+	input_vector = np.concatenate((hot_ph, hot_ph_b, hot_ph_b_b, hot_ph_a, hot_ph_a_a, ph_perc, ph_len), axis=1)
 
-		input_vector = np.concatenate((hot_ph, hot_ph_b, hot_ph_b_b, hot_ph_a, hot_ph_a_a, ph_perc, ph_len), axis=1)
+	if len(lf0) > len(input_vector):
+		lf0 = lf0[:len(input_vector)]
 
-		if len(lf0) > len(input_vector):
-			lf0 = lf0[:len(input_vector)]
+	while len(lf0) < len(input_vector):
+		lf0 = np.concatenate((lf0, [lf0[-1]]), axis=0)
 
-		while len(lf0) < len(input_vector):
-			lf0 = np.concatenate((lf0, [lf0[-1]]), axis=0)
+	input_vector = np.concatenate((input_vector, lf0), axis=1)
 
-		input_vector = np.concatenate((input_vector, lf0), axis=1)
+	with open(input_features_path + title + ".pickle", "wb") as f:
+		pickle.dump(input_vector, f)
 
-		with open('input_features/' + title + ".pickle", "wb") as f:
-			pickle.dump(input_vector, f)
-	except:
-		pass
+
+if __name__ == '__main__':
+
+	times_path = sys.argv[1]
+	textgrid_path = sys.argv[2]
+	phone_dict_path = sys.argv[3]
+	f0_path = sys.argv[4]
+	input_features_path = sys.argv[5]
+
+	times_titles = []
+	for fn in os.listdir(times_path):
+		basename, extension = os.path.splitext(fn)
+		if extension == '.times':
+			times_titles.append(basename)
+
+	textgrid_titles = []
+	for fn in os.listdir(textgrid_path):
+		basename, extension = os.path.splitext(fn)
+		if extension == '.TextGrid':
+			textgrid_titles.append(basename)
+
+	f0_titles = []
+	for fn in os.listdir(f0_path):
+		basename, extension = os.path.splitext(fn)
+		if extension == '.f0':
+			f0_titles.append(basename)
+
+	titles = set(times_titles).intersection(textgrid_titles).intersection(f0_titles)
+
+	p = Pool()
+	p.starmap(extract_features, [(title, times_path, textgrid_path, phone_dict_path, f0_path, input_features_path) for title in titles])
