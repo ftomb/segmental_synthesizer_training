@@ -2,6 +2,26 @@ plugins {
     id 'base'
 }
 
+repositories {
+    ['cloudark', 'localhost'].each { host ->
+        maven {
+            url "http://$host:8081/artifactory/local"
+            credentials {
+                username = findProperty('cloudarkUser')
+                password = findProperty('cloudarkApiKey')
+            }
+        }
+    }
+}
+
+configurations {
+    data
+}
+
+dependencies {
+    data group: 'de.dfki.mary', name: 'blizzard2017-data-wav', version: '0.4.0', ext: 'zip'
+}
+
 task copy_wav(type: Copy) {
     // to be replaced with ark data
     from "wav/"
