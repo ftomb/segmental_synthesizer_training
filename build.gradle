@@ -3,6 +3,10 @@ plugins {
     id 'org.m2ci.msp.praat-wrapper' version '0.5.1'
 }
 
+ext {
+    blizzardDataVersion = '0.4.0'
+}
+
 repositories {
     ['cloudark', 'localhost'].each { host ->
         maven {
@@ -20,18 +24,14 @@ configurations {
 }
 
 dependencies {
-    data group: 'de.dfki.mary', name: 'blizzard2017-data-wav', version: '0.4.0', ext: 'zip'
+    data group: 'de.dfki.mary', name: 'blizzard2017-data-wav', version: blizzardDataVersion, ext: 'zip'
 }
 
 task unpackData(type: Copy) {
     from configurations.data.files.collect { zipFile ->
         zipTree(zipFile)
     }
-    into "$buildDir/wav"
-    eachFile {
-        it.path = it.name
-    }
-    includeEmptyDirs = false
+    into "$buildDir/data"
 }
 
 task copy_textgrid(type: Copy) {
@@ -42,7 +42,7 @@ task copy_textgrid(type: Copy) {
 
 task resample(type: PyExec) {
     dependsOn unpackData
-    srcDir = file("$buildDir/wav")
+    srcDir = file("$buildDir/data/wav-$blizzardDataVersion/wav")
     destDir = file("$buildDir/wav_")
     pyFile = file("scripts/00_resample.py")
     args += [srcDir, destDir]
