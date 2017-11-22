@@ -22,10 +22,15 @@ dependencies {
     data group: 'de.dfki.mary', name: 'blizzard2017-data-wav', version: '0.4.0', ext: 'zip'
 }
 
-task copy_wav(type: Copy) {
-    // to be replaced with ark data
-    from "wav/"
+task unpackData(type: Copy) {
+    from configurations.data.files.collect { zipFile ->
+        zipTree(zipFile)
+    }
     into "$buildDir/wav"
+    eachFile {
+        it.path = it.name
+    }
+    includeEmptyDirs = false
 }
 
 task copy_textgrid(type: Copy) {
@@ -35,7 +40,7 @@ task copy_textgrid(type: Copy) {
 }
 
 task resample(type: Exec) {
-    dependsOn copy_wav
+    dependsOn unpackData
     def wavDir = "$buildDir/wav/"
     def wav_Dir = "$buildDir/wav_/"
     workingDir 'scripts/'
