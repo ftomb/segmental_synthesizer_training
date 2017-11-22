@@ -58,17 +58,13 @@ task extract_f0(type: PyExec) {
     args += [srcDir, destDir, praat.binary, praatFile]
 }
 
-task extract_output_features(type: Exec) {
+task extract_output_features(type: PyExec) {
     dependsOn resample
-    def wav_Dir = "$buildDir/wav_/"
-    def outputFeaturesDir = "$buildDir/output_features/"
-    def extractionTimesDir = "$buildDir/extraction_times/"
-    workingDir 'scripts/'
-    commandLine 'python3', '01_extract_output_features.py', wav_Dir, outputFeaturesDir, extractionTimesDir
-    doFirst {
-        file(outputFeaturesDir).mkdirs()
-        file(extractionTimesDir).mkdirs()
-    }
+    srcDir = file("$buildDir/wav_")
+    destDir = file("$buildDir/output_features")
+    destDir2 = file("$buildDir/extraction_times/")
+    pyFile = file("scripts/01_extract_output_features.py")
+    args += [srcDir, destDir, destDir2]
 }
 
 task generate_phone_dict(type: Exec) {

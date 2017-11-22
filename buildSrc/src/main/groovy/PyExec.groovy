@@ -17,6 +17,10 @@ class PyExec extends DefaultTask {
     @OutputDirectory
     File destDir
 
+    @Optional
+    @OutputDirectory
+    File destDir2
+
     @TaskAction
     void run() {
         project.exec {

@@ -32,7 +32,7 @@ def interpolate(y):
 def extract_features(title, wav_path, bap_mgc_path, times_path):
 	
 	fs = 48000
-	wav_stream = wavfile.read(wav_path + title + '.wav')
+	wav_stream = wavfile.read(os.path.join(wav_path, title + '.wav'))
 	wav_stream = np.array(wav_stream[1], dtype=float)
 	x = np.array(wav_stream, dtype=np.float64)
 
@@ -51,10 +51,10 @@ def extract_features(title, wav_path, bap_mgc_path, times_path):
 
 	output_vector = np.concatenate((vuv, bap, mgc), axis=1)
 
-	with open(bap_mgc_path + title + ".bap_mgc", "wb") as f:
+	with open(os.path.join(bap_mgc_path, title + ".bap_mgc"), "wb") as f:
 		pickle.dump(output_vector, f)
 
-	with open(times_path + title + ".times", "wb") as g:
+	with open(os.path.join(times_path, title + ".times"), "wb") as g:
 		pickle.dump(ts, g)
 	
 if __name__ == '__main__':
