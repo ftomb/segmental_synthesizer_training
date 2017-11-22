@@ -25,6 +25,7 @@ configurations {
 
 dependencies {
     data group: 'de.dfki.mary', name: 'blizzard2017-data-wav', version: blizzardDataVersion, ext: 'zip'
+    data group: 'de.dfki.mary', name: 'blizzard2017-data-lab', version: blizzardDataVersion, ext: 'zip'
 }
 
 task unpackData(type: Copy) {
@@ -32,12 +33,6 @@ task unpackData(type: Copy) {
         zipTree(zipFile)
     }
     into "$buildDir/data"
-}
-
-task copy_textgrid(type: Copy) {
-    // to be replaced with ark data
-    from "textgrid/"
-    into "$buildDir/textgrid"
 }
 
 task resample(type: PyExec) {
@@ -67,15 +62,12 @@ task extract_output_features(type: PyExec) {
     args += [srcDir, destDir, destDir2]
 }
 
-task generate_phone_dict(type: Exec) {
-    dependsOn copy_textgrid
-    def textGridDir = "$buildDir/textgrid/"
-    def phoneDictDir = "$buildDir/phone_dictionary/"
-    workingDir 'scripts/'
-    commandLine 'python3', '02_phone_dict.py', textGridDir, phoneDictDir
-    doFirst {
-        file(phoneDictDir).mkdirs()
-    }
+task generate_phone_dict(type: PyExec) {
+    dependsOn unpackData
+    srcDir = file("$buildDir/data/lab-$blizzardDataVersion/TextGrid")
+    destDir = file("$buildDir/phone_dictionary")
+    pyFile = file("scripts/02_phone_dict.py")
+    args += [srcDir, destDir]
 }
 
 task extract_input_features(type: Exec) {
