@@ -39,15 +39,12 @@ task copy_textgrid(type: Copy) {
     into "$buildDir/textgrid"
 }
 
-task resample(type: Exec) {
+task resample(type: PyExec) {
     dependsOn unpackData
-    def wavDir = "$buildDir/wav/"
-    def wav_Dir = "$buildDir/wav_/"
-    workingDir 'scripts/'
-    commandLine 'python3', '00_resample.py', wavDir, wav_Dir
-    doFirst {
-        file(wav_Dir).mkdirs()
-    }
+    srcDir = file("$buildDir/wav")
+    destDir = file("$buildDir/wav_")
+    pyFile = file("scripts/00_resample.py")
+    args += [srcDir, destDir]
 }
 
 task extract_f0(type: Exec) {
