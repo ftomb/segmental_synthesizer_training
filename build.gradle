@@ -1,5 +1,6 @@
 plugins {
     id 'base'
+    id 'org.m2ci.msp.praat-wrapper' version '0.5.1'
 }
 
 repositories {
@@ -47,15 +48,14 @@ task resample(type: PyExec) {
     args += [srcDir, destDir]
 }
 
-task extract_f0(type: Exec) {
-    dependsOn resample
-    def wav_Dir = "$buildDir/wav_/"
-    def f0Dir = "$buildDir/f0/"
-    workingDir 'scripts/'
-    commandLine 'python3', '00a_extract_f0.py', wav_Dir, f0Dir
-    doFirst {
-        file(f0Dir).mkdirs()
-    }
+task extract_f0(type: PyExec) {
+    dependsOn resample, praat
+    srcDir = file("$buildDir/wav_")
+    destDir = file("$buildDir/f0")
+    pyFile = file("scripts/00a_extract_f0.py")
+    def praatFile = file("scripts/00b_praat_script.praat")
+    inputs.files praatFile
+    args += [srcDir, destDir, praat.binary, praatFile]
 }
 
 task extract_output_features(type: Exec) {
