@@ -8,7 +8,7 @@ def calculate_output_mean_std(output_titles, output_features_path):
 	M = 0
 	S = 0
 	for title in output_titles:
-		with open(output_features_path + title + '.bap_mgc', "rb") as f: 
+		with open(os.path.join(output_features_path, title + '.bap_mgc'), "rb") as f:
 			X = pickle.load(f)
 			for x in X:
 				k += 1
@@ -32,5 +32,5 @@ if __name__ == '__main__':
 	output_mean, output_var = calculate_output_mean_std(output_titles, output_features_path)
 	output_std = np.sqrt(output_var)
 
-	with open(mean_std_path+'output_mean_std.pickle', "wb") as f:
+	with open(os.path.join(mean_std_path, 'output_mean_std.pickle'), "wb") as f:
 		pickle.dump([output_mean, output_std], f)

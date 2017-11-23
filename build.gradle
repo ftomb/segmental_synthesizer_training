@@ -103,15 +103,12 @@ task calculate_input_mean(type: PyExec) {
     args += [srcFiles, destDirs]
 }
 
-task calculate_output_mean(type: Exec) {
+task calculate_output_mean(type: PyExec) {
     dependsOn extract_output_features
-    def outputFeaturesDir = "$buildDir/output_features/"
-    def meanStdDir = "$buildDir/mean_std/"
-    workingDir 'scripts/'
-    commandLine 'python3', '04_calculate_output_mean_std.py', outputFeaturesDir, meanStdDir
-    doFirst {
-        file(meanStdDir).mkdirs()
-    }
+    srcFiles = file("$buildDir/output_features")
+    destDirs = file("$buildDir/output_mean_std")
+    pyFile = file("scripts/04_calculate_output_mean_std.py")
+    args += [srcFiles, destDirs]
 }
 
 task normalize_input_features(type: Exec) {
