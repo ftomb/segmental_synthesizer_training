@@ -51,6 +51,15 @@ task extract_f0(type: PyExec) {
     def praatFile = file("scripts/00b_praat_script.praat")
     inputs.files praatFile
     args += [srcFiles, destDirs, praat.binary, praatFile]
+    doLast {
+        def filesWithUndefinedFrames = []
+        fileTree(destDirs).include('*.f0').each { f0File ->
+            if (f0File.text.contains('--undefined--')) {
+                filesWithUndefinedFrames << f0File
+            }
+        }
+        assert !filesWithUndefinedFrames: "Undefined F0 frames!"
+    }
 }
 
 task extract_output_features(type: PyExec) {
