@@ -111,16 +111,13 @@ task calculate_output_mean(type: PyExec) {
     args += [srcFiles, destDirs]
 }
 
-task normalize_input_features(type: Exec) {
-    dependsOn calculate_input_mean
-    def meanStdDir = "$buildDir/mean_std/"
-    def intputFeaturesDir = "$buildDir/input_features/"
-    def normInputFeaturesDir = "$buildDir/normalized_input_features/"
-    workingDir 'scripts/'
-    commandLine 'python3', '05_normalize_input_features.py', meanStdDir, intputFeaturesDir, normInputFeaturesDir
-    doFirst {
-        file(normInputFeaturesDir).mkdirs()
-    }
+task normalize_input_features(type: PyExec) {
+    dependsOn extract_input_features, calculate_input_mean
+    srcFiles = [file("$buildDir/input_mean_std"),
+                file("$buildDir/input_features")]
+    destDirs = file("$buildDir/normalized_input_features")
+    pyFile = file("scripts/05_normalize_input_features.py")
+    args += srcFiles + [destDirs]
 }
 
 task normalize_output_features(type: Exec) {
