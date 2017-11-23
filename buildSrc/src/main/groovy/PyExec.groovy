@@ -10,16 +10,12 @@ class PyExec extends DefaultTask {
     Object args = []
 
     @Optional
-    @InputDirectory
-    File srcDir
+    @InputFiles
+    Object srcFiles
 
     @Optional
-    @OutputDirectory
-    File destDir
-
-    @Optional
-    @OutputDirectory
-    File destDir2
+    @OutputDirectories
+    Object destDirs
 
     @TaskAction
     void run() {
