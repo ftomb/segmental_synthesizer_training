@@ -129,15 +129,11 @@ task normalize_output_features(type: PyExec) {
     args += srcFiles + [destDirs]
 }
 
-task trainNetwork(type: Exec) {
-    dependsOn normalize_input_features
-    dependsOn normalize_output_features
-    def normInputFeaturesDir = "$buildDir/normalized_input_features/"
-    def normoutputFeaturesDir = "$buildDir/normalized_output_features/"
-    def networkOutputsDir = "$buildDir/FFNN_models/"
-    workingDir 'scripts/'
-    commandLine 'python3', '07_FFNN.py', normInputFeaturesDir, normoutputFeaturesDir, networkOutputsDir
-    doFirst {
-        file(networkOutputsDir).mkdirs()
-    }
+task trainNetwork(type: PyExec) {
+    dependsOn normalize_input_features, normalize_output_features
+    srcFiles = [file("$buildDir/normalized_input_features"),
+                file("$buildDir/normalized_output_features")]
+    destDirs = file("$buildDir/FFNN_models")
+    pyFile = file("scripts/07_FFNN.py")
+    args += srcFiles + [destDirs]
 }
