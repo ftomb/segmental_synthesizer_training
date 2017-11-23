@@ -120,16 +120,13 @@ task normalize_input_features(type: PyExec) {
     args += srcFiles + [destDirs]
 }
 
-task normalize_output_features(type: Exec) {
-    dependsOn calculate_output_mean
-    def meanStdDir = "$buildDir/mean_std/"
-    def outputFeaturesDir = "$buildDir/output_features/"
-    def normoutputFeaturesDir = "$buildDir/normalized_output_features/"
-    workingDir 'scripts/'
-    commandLine 'python3', '06_normalize_output_features.py', meanStdDir, outputFeaturesDir, normoutputFeaturesDir
-    doFirst {
-        file(normoutputFeaturesDir).mkdirs()
-    }
+task normalize_output_features(type: PyExec) {
+    dependsOn extract_output_features, calculate_output_mean
+    srcFiles = [file("$buildDir/output_mean_std"),
+                file("$buildDir/output_features")]
+    destDirs = file("$buildDir/normalized_output_features")
+    pyFile = file("scripts/06_normalize_output_features.py")
+    args += srcFiles + [destDirs]
 }
 
 task trainNetwork(type: Exec) {

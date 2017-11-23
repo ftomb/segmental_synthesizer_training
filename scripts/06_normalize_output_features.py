@@ -6,15 +6,15 @@ import os
 
 def normalize(title, mean_std_path, output_features_path, normalized_output_features_path):
 
-	with open(mean_std_path + 'output_mean_std.pickle' , "rb") as f: 
+	with open(os.path.join(mean_std_path, 'output_mean_std.pickle'), "rb") as f:
 		output_mean, output_std = pickle.load(f)
 
-	with open(output_features_path + title, "rb") as g: 
+	with open(os.path.join(output_features_path, title), "rb") as g:
 		X = pickle.load(g)
 		X -= output_mean
 		X /= output_std+np.finfo(float).eps
 
-	with open(normalized_output_features_path + title, "wb") as h:
+	with open(os.path.join(normalized_output_features_path, title), "wb") as h:
 		pickle.dump(X, h)
 
 
