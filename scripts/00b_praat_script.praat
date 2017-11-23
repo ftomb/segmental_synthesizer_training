@@ -8,7 +8,7 @@ endform
 Read from file: wav_path$ + "/" + title$ + ".wav"
 selectObject: "Sound " + title$
 
-To Pitch (ac)... 0.005 75 15 no 0.1 0.8 0.01 0.8 0.14 600
+To Pitch (ac)... 0.005 75 15 no 0.03 0.45 0.01 0.8 0.14 600
 
 Down to PitchTier
 

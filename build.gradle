@@ -33,6 +33,7 @@ task unpackData(type: Copy) {
         zipTree(zipFile)
     }
     into "$buildDir/data"
+    exclude '**/HanselAndGretel_010_006.*'
 }
 
 task resample(type: PyExec) {
