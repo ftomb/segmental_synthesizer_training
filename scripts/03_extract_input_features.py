@@ -29,10 +29,10 @@ def process_phones(l):
 def extract_features(title, times_path, textgrid_path, phone_dict_path, f0_path, input_features_path):
 
 	# get the times 
-	with open(times_path + title + ".times", "rb") as f: 
+	with open(os.path.join(times_path, title + ".times"), "rb") as f:
 		ts = pickle.load(f)
 
-	tgname = textgrid_path + title + '.TextGrid'
+	tgname = os.path.join(textgrid_path, title + '.TextGrid')
 	tg = tgt.read_textgrid(tgname)
 	phones_tier = tg.get_tier_by_name('phones')
 
@@ -45,7 +45,7 @@ def extract_features(title, times_path, textgrid_path, phone_dict_path, f0_path,
 
 	ph, ph_b, ph_b_b, ph_a, ph_a_a, ph_perc, ph_len = process_phones(phone_list)
 
-	with open(phone_dict_path + 'phone_dictionary.dict', "rb") as f:
+	with open(os.path.join(phone_dict_path, 'phone_dictionary.dict'), "rb") as f:
 		ph_dict = pickle.load(f)
 
 	hot_ph = np.array([ph_dict[i] for i in ph])
@@ -54,7 +54,7 @@ def extract_features(title, times_path, textgrid_path, phone_dict_path, f0_path,
 	hot_ph_a = np.array([ph_dict[i] for i in ph_a])
 	hot_ph_a_a = np.array([ph_dict[i] for i in ph_a_a])
 
-	with open(f0_path + title + '.f0') as f:
+	with open(os.path.join(f0_path, title + '.f0')) as f:
 		lf0 = np.log2([[float(l.strip())] for l in f], dtype=np.float64)
 
 	input_vector = np.concatenate((hot_ph, hot_ph_b, hot_ph_b_b, hot_ph_a, hot_ph_a_a, ph_perc, ph_len), axis=1)
@@ -67,7 +67,7 @@ def extract_features(title, times_path, textgrid_path, phone_dict_path, f0_path,
 
 	input_vector = np.concatenate((input_vector, lf0), axis=1)
 
-	with open(input_features_path + title + ".pickle", "wb") as f:
+	with open(os.path.join(input_features_path, title + ".pickle"), "wb") as f:
 		pickle.dump(input_vector, f)
 
 

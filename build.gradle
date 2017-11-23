@@ -69,20 +69,15 @@ task generate_phone_dict(type: PyExec) {
     args += [srcFiles, destDirs]
 }
 
-task extract_input_features(type: Exec) {
-    dependsOn extract_f0
-    dependsOn extract_output_features
-    dependsOn generate_phone_dict
-    def timesDir = "$buildDir/extraction_times/"
-    def textGridDir = "$buildDir/textgrid/"
-    def phoneDictDir = "$buildDir/phone_dictionary/"
-    def f0Dir = "$buildDir/f0/"
-    def inputFeaturesDir = "$buildDir/input_features/"
-    workingDir 'scripts/'
-    commandLine 'python3', '03_extract_input_features.py', timesDir, textGridDir, phoneDictDir, f0Dir, inputFeaturesDir
-    doFirst {
-        file(inputFeaturesDir).mkdirs()
-    }
+task extract_input_features(type: PyExec) {
+    dependsOn extract_f0, extract_output_features, generate_phone_dict
+    srcFiles = [file("$buildDir/extraction_times"),
+                file("$buildDir/data/lab-$blizzardDataVersion/TextGrid"),
+                file("$buildDir/phone_dictionary"),
+                file("$buildDir/f0")]
+    destDirs = file("$buildDir/input_features")
+    pyFile = file("scripts/03_extract_input_features.py")
+    args += srcFiles + [destDirs]
 }
 
 task calculate_input_mean(type: Exec) {
