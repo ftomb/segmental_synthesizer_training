@@ -3,6 +3,9 @@ plugins {
     id 'org.m2ci.msp.praat-wrapper' version '0.5.1'
 }
 
+group 'de.dfki.mary.blizzard'
+version '0.1-SNAPSHOT'
+
 ext {
     blizzardDataVersion = '0.4.0'
 }
