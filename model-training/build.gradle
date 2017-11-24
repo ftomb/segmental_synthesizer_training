@@ -1,0 +1,36 @@
+dependencies {
+    data project(path: ':data-preparation', configuration: 'archives')
+}
+
+task unpackData(type: Copy) {
+    from configurations.data.files.collect { zipFile ->
+        zipTree(zipFile)
+    }
+    into "$buildDir/data"
+}
+
+task trainNetwork(type: PyExec) {
+    dependsOn unpackData
+    srcFiles = [file("$buildDir/normalized_input_features"),
+                file("$buildDir/normalized_output_features")]
+    destDirs = file("$buildDir/FFNN_models")
+    pyFile = file("scripts/07_FFNN.py")
+    args += srcFiles + [destDirs]
+}
+
+task packageModel(type: Zip) {
+    from trainNetwork
+    include 'frozen_model'
+}
+
+artifacts {
+    archives packageModel
+}
+
+publishing {
+    publications {
+        archives(MavenPublication) {
+            artifact packageModel
+        }
+    }
+}

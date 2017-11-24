@@ -1,0 +1,141 @@
+plugins {
+    id 'org.m2ci.msp.praat-wrapper' version '0.5.1'
+}
+
+ext {
+    blizzardDataVersion = '0.4.0'
+}
+
+repositories {
+    ['cloudark', 'localhost'].each { host ->
+        maven {
+            url "http://$host:8081/artifactory/local"
+            credentials {
+                username = findProperty('cloudarkUser')
+                password = findProperty('cloudarkApiKey')
+            }
+        }
+    }
+}
+
+dependencies {
+    data group: 'de.dfki.mary', name: 'blizzard2017-data-wav', version: blizzardDataVersion, ext: 'zip'
+    data group: 'de.dfki.mary', name: 'blizzard2017-data-lab', version: blizzardDataVersion, ext: 'zip'
+}
+
+task unpackData(type: Copy) {
+    from configurations.data.files.collect { zipFile ->
+        zipTree(zipFile)
+    }
+    into "$buildDir/data"
+    exclude '**/HanselAndGretel_010_006.*'
+}
+
+task resample(type: PyExec) {
+    dependsOn unpackData
+    srcFiles = file("$buildDir/data/wav-$blizzardDataVersion/wav")
+    destDirs = file("$buildDir/wav_")
+    pyFile = file("scripts/00_resample.py")
+    args += [srcFiles, destDirs]
+}
+
+task extract_f0(type: PyExec) {
+    dependsOn resample, praat
+    srcFiles = file("$buildDir/wav_")
+    destDirs = file("$buildDir/f0")
+    pyFile = file("scripts/00a_extract_f0.py")
+    def praatFile = file("scripts/00b_praat_script.praat")
+    inputs.files praatFile
+    args += [srcFiles, destDirs, praat.binary, praatFile]
+}
+
+task check_extracted_f0 {
+    dependsOn extract_f0
+    doLast {
+        def filesWithUndefinedFrames = []
+        fileTree("$buildDir/f0").include('*.f0').each { f0File ->
+            if (f0File.text.contains('--undefined--')) {
+                filesWithUndefinedFrames << f0File
+            }
+        }
+        assert !filesWithUndefinedFrames: "Undefined F0 frames!"
+    }
+    extract_f0.finalizedBy it
+}
+
+task extract_output_features(type: PyExec) {
+    dependsOn resample
+    srcFiles = file("$buildDir/wav_")
+    destDirs = [file("$buildDir/output_features"), file("$buildDir/extraction_times/")]
+    pyFile = file("scripts/01_extract_output_features.py")
+    args += [srcFiles] + destDirs
+}
+
+task generate_phone_dict(type: PyExec) {
+    dependsOn unpackData
+    srcFiles = file("$buildDir/data/lab-$blizzardDataVersion/TextGrid")
+    destDirs = file("$buildDir/phone_dictionary")
+    pyFile = file("scripts/02_phone_dict.py")
+    args += [srcFiles, destDirs]
+}
+
+task extract_input_features(type: PyExec) {
+    dependsOn extract_f0, extract_output_features, generate_phone_dict
+    srcFiles = [file("$buildDir/extraction_times"),
+                file("$buildDir/data/lab-$blizzardDataVersion/TextGrid"),
+                file("$buildDir/phone_dictionary"),
+                file("$buildDir/f0")]
+    destDirs = file("$buildDir/input_features")
+    pyFile = file("scripts/03_extract_input_features.py")
+    args += srcFiles + [destDirs]
+}
+
+task calculate_input_mean(type: PyExec) {
+    dependsOn extract_input_features
+    srcFiles = file("$buildDir/input_features")
+    destDirs = file("$buildDir/input_mean_std")
+    pyFile = file("scripts/04_calculate_input_mean_std.py")
+    args += [srcFiles, destDirs]
+}
+
+task calculate_output_mean(type: PyExec) {
+    dependsOn extract_output_features
+    srcFiles = file("$buildDir/output_features")
+    destDirs = file("$buildDir/output_mean_std")
+    pyFile = file("scripts/04_calculate_output_mean_std.py")
+    args += [srcFiles, destDirs]
+}
+
+task normalize_input_features(type: PyExec) {
+    dependsOn extract_input_features, calculate_input_mean
+    srcFiles = [file("$buildDir/input_mean_std"),
+                file("$buildDir/input_features")]
+    destDirs = file("$buildDir/normalized_input_features")
+    pyFile = file("scripts/05_normalize_input_features.py")
+    args += srcFiles + [destDirs]
+}
+
+task normalize_output_features(type: PyExec) {
+    dependsOn extract_output_features, calculate_output_mean
+    srcFiles = [file("$buildDir/output_mean_std"),
+                file("$buildDir/output_features")]
+    destDirs = file("$buildDir/normalized_output_features")
+    pyFile = file("scripts/06_normalize_output_features.py")
+    args += srcFiles + [destDirs]
+}
+
+task packageData(type: Zip) {
+    from normalize_input_features, normalize_output_features
+}
+
+artifacts {
+    archives packageData
+}
+
+publishing {
+    publications {
+        archives(MavenPublication) {
+            artifact packageData
+        }
+    }
+}
