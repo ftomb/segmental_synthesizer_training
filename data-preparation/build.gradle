@@ -49,6 +49,10 @@ task extract_f0(type: PyExec) {
     args += [srcFiles, destDirs, praat.binary, praatFile]
 }
 
+task packageF0(type: Zip) {
+    from extract_f0
+}
+
 task check_extracted_f0 {
     dependsOn extract_f0
     doLast {
@@ -134,8 +138,10 @@ artifacts {
 
 publishing {
     publications {
-        archives(MavenPublication) {
-            artifact packageData
+        f0(MavenPublication) {
+            artifact packageF0, {
+                artifactId "blizzard2017-data-f0"
+            }
         }
     }
 }
