@@ -14,11 +14,11 @@ def load_titles(normalized_input_features_path, normalized_output_features_path)
 	return set(input_titles).intersection(output_titles)
 
 def load_input_title(title, normalized_input_features_path):
-	with open(normalized_input_features_path + title + '.pickle', "rb") as g: 
+	with open(os.path.join(normalized_input_features_path, title + '.pickle'), "rb") as g:
 		return pickle.load(g)
 
 def load_output_title(title, normalized_output_features_path):
-	with open(normalized_output_features_path + title + '.bap_mgc', "rb") as g: 
+	with open(os.path.join(normalized_output_features_path, title + '.bap_mgc'), "rb") as g:
 		return pickle.load(g)
 
 def weight(d1, d2):
@@ -80,7 +80,7 @@ if __name__ == '__main__':
 	corpus_split = 1
 	test_titles = sorted(titles)[:corpus_split]
 	titles = sorted(titles)[corpus_split:]
-	f = open(FFNN_models_path+'test_titles'+'.txt', 'a')
+	f = open(os.path.join(FFNN_models_path, 'test_titles'+'.txt'), 'a')
 	f.write(str(test_titles))
 
 
@@ -91,9 +91,9 @@ if __name__ == '__main__':
 
 	# Define dimensions of the neural network
 
-	forward_nodes = 20
-	recurrent_nodes = 20
-	forward_layers = 5
+	forward_nodes = 500
+	recurrent_nodes = 500
+	forward_layers = 10
 	h_layers = [forward_nodes for i in range(0, forward_layers)]
 	D = [X_d]+h_layers+[recurrent_nodes]+[Y_d]
 	print(D)
@@ -109,7 +109,7 @@ if __name__ == '__main__':
 			e += 1
 			epoch_loss = 0
 			shuffle(titles)
-			f = open(FFNN_models_path+'output_log'+'.txt', 'a')
+			f = open(os.path.join(FFNN_models_path, 'output_log'+'.txt'), 'a')
 
 			for title in titles:
 
@@ -131,7 +131,7 @@ if __name__ == '__main__':
 				best_loss = epoch_loss
 
 				saver = tf.train.Saver()
-				saver.save(sess, FFNN_models_path+'models')
+				saver.save(sess, os.path.join(FFNN_models_path, 'models'))
 
 				print('Saving frozen graph...')
 
@@ -140,7 +140,7 @@ if __name__ == '__main__':
 
 				output_graph_def = graph_util.convert_variables_to_constants(sess, input_graph_def, ['Y_']) 
 
-				with tf.gfile.GFile(FFNN_models_path+'frozen_model', "wb") as f:
+				with tf.gfile.GFile(os.path.join(FFNN_models_path, 'frozen_model'), "wb") as f:
 					f.write(output_graph_def.SerializeToString())
 
 			if epoch_loss == 0.0:

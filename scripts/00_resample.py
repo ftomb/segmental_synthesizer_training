@@ -4,7 +4,7 @@ import sys
 import os
 
 def resample(title, input_path, output_path, extension):
-	subprocess.call(['sox', input_path+title+extension, '-b', '16', output_path+title+extension, 'rate', str(48000)])
+	subprocess.call(['sox', os.path.join(input_path, title+extension), '-b', '16', os.path.join(output_path, title+extension), 'rate', str(48000)])
 
 if __name__ == '__main__':
 

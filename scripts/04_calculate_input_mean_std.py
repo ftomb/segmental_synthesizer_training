@@ -10,7 +10,7 @@ def calculate_input_mean_std(input_titles, input_features_path):
 	M = 0
 	S = 0
 	for title in input_titles:
-		with open(input_features_path + title + '.pickle', "rb") as f: 
+		with open(os.path.join(input_features_path, title + '.pickle'), "rb") as f:
 			X = pickle.load(f)
 			for x in X:
 				k += 1
@@ -33,7 +33,7 @@ if __name__ == '__main__':
 	input_mean, input_var = calculate_input_mean_std(input_titles, input_features_path)
 	input_std = np.sqrt(input_var)
 
-	with open(mean_std_path+'input_mean_std.pickle', "wb") as f:
+	with open(os.path.join(mean_std_path, 'input_mean_std.pickle'), "wb") as f:
 		pickle.dump([input_mean, input_std], f)
 
 

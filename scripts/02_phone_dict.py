@@ -9,7 +9,7 @@ def generate_phone_set(titles, textgrid_path):
 	phone_list = []
 
 	for title in titles:
-		tgname = textgrid_path + title + '.TextGrid'
+		tgname = os.path.join(textgrid_path, title + '.TextGrid')
 
 		tg = tgt.read_textgrid(tgname)
 		phones_tier = tg.get_tier_by_name('phones')
@@ -40,6 +40,5 @@ if __name__ == '__main__':
 	phone_set = generate_phone_set(titles, textgrid_path)
 	ph_dict = generate_phone_dict(phone_set)
 	
-	with open(phone_dict_path + 'phone_dictionary' + ".dict", "wb") as f:
+	with open(os.path.join(phone_dict_path, 'phone_dictionary' + ".dict"), "wb") as f:
 		pickle.dump(ph_dict, f)
-
