@@ -91,9 +91,9 @@ if __name__ == '__main__':
 
 	# Define dimensions of the neural network
 
-	forward_nodes = 20
-	recurrent_nodes = 20
-	forward_layers = 5
+	forward_nodes = 500
+	recurrent_nodes = 500
+	forward_layers = 10
 	h_layers = [forward_nodes for i in range(0, forward_layers)]
 	D = [X_d]+h_layers+[recurrent_nodes]+[Y_d]
 	print(D)
