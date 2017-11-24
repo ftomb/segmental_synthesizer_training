@@ -1,56 +1,99 @@
+repositories {
+    ['cloudark', 'localhost'].each { host ->
+        maven {
+            url "http://$host:8081/artifactory/data-release-local"
+            credentials {
+                username = findProperty('cloudarkUser')
+                password = findProperty('cloudarkApiKey')
+            }
+        }
+    }
+}
 
-task copy_wav(type: Copy) {
-	// to be replaced with ark data
-    from "wav/"
+configurations {
+    wavData
+    textGridData
+}
+
+dependencies {
+    wavData group: 'de.dfki.mary', name: 'blizzard2017-data-wav', version: '0.4.0', ext: 'zip'
+    textGridData group: 'de.dfki.mary', name: 'blizzard2017-data-lab', version: '0.4.0', ext: 'zip'
+}
+
+task unpackWavData(type: Copy) {
+    from configurations.wavData
     into "$buildDir/wav"
+    filesMatching '*.zip', { zipFileDetails ->
+        copy {
+            from zipTree(zipFileDetails.file)
+            into destinationDir
+            include '**/*.wav'
+            eachFile {
+                it.path = it.name
+            }
+            includeEmptyDirs = false
+        }
+        zipFileDetails.exclude()
+    }
 }
 
-task copy_textgrid(type: Copy) {
-	// to be replaced with ark data
-    from "textgrid/"
+task unpackTextGridData(type: Copy) {
+    from configurations.textGridData
     into "$buildDir/textgrid"
+    filesMatching '*.zip', { zipFileDetails ->
+        copy {
+            from zipTree(zipFileDetails.file)
+            into destinationDir
+            include '**/*.TextGrid'
+            eachFile {
+                it.path = it.name
+            }
+            includeEmptyDirs = false
+        }
+        zipFileDetails.exclude()
+    }
 }
+
 
 task resample(type: Exec) {
-	dependsOn copy_wav
-	def wavDir = "$buildDir/wav/"
-	def wav_Dir = "$buildDir/wav_/"
-	workingDir 'scripts/'
+    dependsOn unpackWavData
+    def wavDir = "$buildDir/wav/"
+    def wav_Dir = "$buildDir/wav_/"
+    inputs.dir wavDir
+    outputs.dir wav_Dir
+    workingDir 'scripts/'
     commandLine 'python3', '00_resample.py', wavDir, wav_Dir
     doFirst {
         file(wav_Dir).mkdirs()
     }
 }
 
-task extract_f0(type: Exec) {
-	dependsOn resample
-	def wav_Dir = "$buildDir/wav_/"
-	def f0Dir = "$buildDir/f0/"
-	workingDir 'scripts/'
-    commandLine 'python3', '00a_extract_f0.py', wav_Dir, f0Dir
+task extract_output_features(type: Exec) {
+    dependsOn resample
+    def wav_Dir = "$buildDir/wav_/"
+    def outputFeaturesDir = "$buildDir/output_features/"
+    def extractionTimesDir = "$buildDir/extraction_times/"
+    def f0Dir = "$buildDir/f0/"
+    inputs.dir wav_Dir
+    outputs.dir outputFeaturesDir
+    outputs.dir extractionTimesDir
+    outputs.dir f0Dir
+    workingDir 'scripts/'
+    commandLine 'python3', '01_extract_output_features.py', wav_Dir, outputFeaturesDir, extractionTimesDir, f0Dir
     doFirst {
+        file(outputFeaturesDir).mkdirs()
+        file(extractionTimesDir).mkdirs()
         file(f0Dir).mkdirs()
     }
 }
 
-task extract_output_features(type: Exec) {
-	dependsOn resample
-	def wav_Dir = "$buildDir/wav_/"
-	def outputFeaturesDir = "$buildDir/output_features/"
-	def extractionTimesDir = "$buildDir/extraction_times/"
-	workingDir 'scripts/'
-    commandLine 'python3', '01_extract_output_features.py', wav_Dir, outputFeaturesDir, extractionTimesDir
-    doFirst {
-        file(outputFeaturesDir).mkdirs()
-        file(extractionTimesDir).mkdirs()
-    }
-}
-
 task generate_phone_dict(type: Exec) {
-	dependsOn copy_textgrid
-	def textGridDir = "$buildDir/textgrid/"
-	def phoneDictDir = "$buildDir/phone_dictionary/"
-	workingDir 'scripts/'
+    dependsOn unpackTextGridData
+    def textGridDir = "$buildDir/textgrid/"
+    def phoneDictDir = "$buildDir/phone_dictionary/"
+    inputs.dir textGridDir
+    outputs.dir phoneDictDir
+    workingDir 'scripts/'
     commandLine 'python3', '02_phone_dict.py', textGridDir, phoneDictDir
     doFirst {
         file(phoneDictDir).mkdirs()
@@ -58,15 +101,19 @@ task generate_phone_dict(type: Exec) {
 }
 
 task extract_input_features(type: Exec) {
-	dependsOn extract_f0
-	dependsOn extract_output_features
-	dependsOn generate_phone_dict
-	def timesDir = "$buildDir/extraction_times/"
-	def textGridDir = "$buildDir/textgrid/"
-	def phoneDictDir = "$buildDir/phone_dictionary/"
-	def f0Dir = "$buildDir/f0/"
-	def inputFeaturesDir = "$buildDir/input_features/"
-	workingDir 'scripts/'
+    dependsOn extract_output_features
+    dependsOn generate_phone_dict
+    def timesDir = "$buildDir/extraction_times/"
+    def textGridDir = "$buildDir/textgrid/"
+    def phoneDictDir = "$buildDir/phone_dictionary/"
+    def f0Dir = "$buildDir/f0/"
+    def inputFeaturesDir = "$buildDir/input_features/"
+    inputs.dir timesDir
+    inputs.dir textGridDir
+    inputs.dir phoneDictDir
+    inputs.dir f0Dir
+    outputs.dir inputFeaturesDir
+    workingDir 'scripts/'
     commandLine 'python3', '03_extract_input_features.py', timesDir, textGridDir, phoneDictDir, f0Dir, inputFeaturesDir
     doFirst {
         file(inputFeaturesDir).mkdirs()
@@ -74,10 +121,12 @@ task extract_input_features(type: Exec) {
 }
 
 task calculate_input_mean(type: Exec) {
-	dependsOn extract_input_features
-	def inputFeaturesDir = "$buildDir/input_features/"
-	def meanStdDir = "$buildDir/mean_std/"
-	workingDir 'scripts/'
+    dependsOn extract_input_features
+    def inputFeaturesDir = "$buildDir/input_features/"
+    def meanStdDir = "$buildDir/mean_std/"
+    inputs.dir inputFeaturesDir
+    outputs.dir meanStdDir
+    workingDir 'scripts/'
     commandLine 'python3', '04_calculate_input_mean_std.py', inputFeaturesDir, meanStdDir
     doFirst {
         file(meanStdDir).mkdirs()
@@ -85,22 +134,24 @@ task calculate_input_mean(type: Exec) {
 }
 
 task calculate_output_mean(type: Exec) {
-	dependsOn extract_output_features
-	def outputFeaturesDir = "$buildDir/output_features/"
-	def meanStdDir = "$buildDir/mean_std/"
-	workingDir 'scripts/'
+    dependsOn extract_output_features
+    def outputFeaturesDir = "$buildDir/output_features/"
+    def meanStdDir = "$buildDir/mean_std/"
+    inputs.dir outputFeaturesDir
+    outputs.dir meanStdDir
+    workingDir 'scripts/'
     commandLine 'python3', '04_calculate_output_mean_std.py', outputFeaturesDir, meanStdDir
-    doFirst {
-        file(meanStdDir).mkdirs()
-    }
 }
 
 task normalize_input_features(type: Exec) {
-	dependsOn calculate_input_mean
-	def meanStdDir = "$buildDir/mean_std/"
-	def intputFeaturesDir = "$buildDir/input_features/"
-	def normInputFeaturesDir = "$buildDir/normalized_input_features/"
-	workingDir 'scripts/'
+    dependsOn calculate_input_mean
+    def meanStdDir = "$buildDir/mean_std/"
+    def intputFeaturesDir = "$buildDir/input_features/"
+    def normInputFeaturesDir = "$buildDir/normalized_input_features/"
+    inputs.dir meanStdDir
+    inputs.dir intputFeaturesDir
+    outputs.dir normInputFeaturesDir
+    workingDir 'scripts/'
     commandLine 'python3', '05_normalize_input_features.py', meanStdDir, intputFeaturesDir, normInputFeaturesDir
     doFirst {
         file(normInputFeaturesDir).mkdirs()
@@ -108,11 +159,14 @@ task normalize_input_features(type: Exec) {
 }
 
 task normalize_output_features(type: Exec) {
-	dependsOn calculate_output_mean
-	def meanStdDir = "$buildDir/mean_std/"
-	def outputFeaturesDir = "$buildDir/output_features/"
-	def normoutputFeaturesDir = "$buildDir/normalized_output_features/"
-	workingDir 'scripts/'
+    dependsOn calculate_output_mean
+    def meanStdDir = "$buildDir/mean_std/"
+    def outputFeaturesDir = "$buildDir/output_features/"
+    def normoutputFeaturesDir = "$buildDir/normalized_output_features/"
+    inputs.dir meanStdDir
+    inputs.dir outputFeaturesDir
+    outputs.dir normoutputFeaturesDir
+    workingDir 'scripts/'
     commandLine 'python3', '06_normalize_output_features.py', meanStdDir, outputFeaturesDir, normoutputFeaturesDir
     doFirst {
         file(normoutputFeaturesDir).mkdirs()
@@ -120,12 +174,15 @@ task normalize_output_features(type: Exec) {
 }
 
 task trainNetwork(type: Exec) {
-	dependsOn normalize_input_features
-	dependsOn normalize_output_features
-	def normInputFeaturesDir = "$buildDir/normalized_input_features/"
-	def normoutputFeaturesDir = "$buildDir/normalized_output_features/"
-	def networkOutputsDir = "$buildDir/FFNN_models/"
-	workingDir 'scripts/'
+    dependsOn normalize_input_features
+    dependsOn normalize_output_features
+    def normInputFeaturesDir = "$buildDir/normalized_input_features/"
+    def normoutputFeaturesDir = "$buildDir/normalized_output_features/"
+    def networkOutputsDir = "$buildDir/FFNN_models/"
+    inputs.dir normInputFeaturesDir
+    inputs.dir normoutputFeaturesDir
+    outputs.dir networkOutputsDir
+    workingDir 'scripts/'
     commandLine 'python3', '07_FFNN.py', normInputFeaturesDir, normoutputFeaturesDir, networkOutputsDir
     doFirst {
         file(networkOutputsDir).mkdirs()
