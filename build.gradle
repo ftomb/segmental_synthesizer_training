@@ -137,3 +137,12 @@ task trainNetwork(type: PyExec) {
     pyFile = file("scripts/07_FFNN.py")
     args += srcFiles + [destDirs]
 }
+
+task packageModel(type: Zip) {
+    from trainNetwork
+    include 'frozen_model'
+}
+
+artifacts {
+    archives packageModel
+}
