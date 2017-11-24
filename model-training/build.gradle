@@ -14,7 +14,7 @@ task trainNetwork(type: PyExec) {
     srcFiles = [file("$buildDir/normalized_input_features"),
                 file("$buildDir/normalized_output_features")]
     destDirs = file("$buildDir/FFNN_models")
-    pyFile = file("scripts/07_FFNN.py")
+    pyFile = file("07_FFNN.py")
     args += srcFiles + [destDirs]
 }
 
