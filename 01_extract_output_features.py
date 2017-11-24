@@ -28,8 +28,13 @@ def interpolate(y):
 	
 	return interp(x).reshape((len(interp(x)), 1))
 
+def save_f0(f0_, title, f0_path):
+	with open(f0_path + title +'.f0', 'w') as f:
+		for i in f0_:
+			f.write(str(i[0]))
+			f.write(str('\n'))
 
-def extract_features(title, wav_path, bap_mgc_path, times_path):
+def extract_features(title, wav_path, bap_mgc_path, times_path, f0_path):
 	
 	fs = 48000
 	wav_stream = wavfile.read(wav_path + title + '.wav')
@@ -39,6 +44,9 @@ def extract_features(title, wav_path, bap_mgc_path, times_path):
 	_f0, ts = pw.dio(x, fs)    # raw pitch extractor
 
 	f0 = pw.stonemask(x, _f0, ts, fs)  # pitch refinement
+	f0_ = interpolate(f0)
+	save_f0(f0_, title, f0_path)
+	
 	sp = pw.cheaptrick(x, f0, ts, fs)  # extract smoothed spectrogram
 	ap = pw.d4c(x, f0, ts, fs)         # extract aperiodicity
 
@@ -56,12 +64,20 @@ def extract_features(title, wav_path, bap_mgc_path, times_path):
 
 	with open(times_path + title + ".times", "wb") as g:
 		pickle.dump(ts, g)
+
 	
+
 if __name__ == '__main__':
 
 	wav_path = sys.argv[1]
 	bap_mgc_path = sys.argv[2]
 	times_path = sys.argv[3]
+	f0_path = sys.argv[4]
+
+	#wav_path = '../build/wav_/'
+	#bap_mgc_path = '../build/output_features/'
+	#times_path = '../build/extraction_times/'
+	#f0_path = '../build/f0/'
 
 	titles = []
 	for fn in os.listdir(wav_path):
@@ -70,4 +86,4 @@ if __name__ == '__main__':
 			titles.append(basename)
 
 	p = Pool()
-	p.starmap(extract_features, [(title, wav_path, bap_mgc_path, times_path) for title in titles])
+	p.starmap(extract_features, [(title, wav_path, bap_mgc_path, times_path, f0_path) for title in titles])
