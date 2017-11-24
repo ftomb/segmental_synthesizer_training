@@ -12,3 +12,8 @@ Python 3 with installed modules
 - `scipy`
 - `pyworld`
 - `pysptk`
+- `tgt`
+
+# Compiling
+
+Run `./gradlew build`.
