@@ -1,6 +1,7 @@
 plugins {
     id 'base'
     id 'org.m2ci.msp.praat-wrapper' version '0.5.1'
+    id 'maven-publish'
 }
 
 group 'de.dfki.mary.blizzard'
@@ -148,4 +149,21 @@ task packageModel(type: Zip) {
 
 artifacts {
     archives packageModel
+}
+
+publishing {
+    repositories {
+        maven {
+            url "http://cloudark:8081/artifactory/data-${version.endsWith('-SNAPSHOT') ? 'snapshot' : 'release'}-local"
+            credentials {
+                username = findProperty('cloudarkUser')
+                password = findProperty('cloudarkApiKey')
+            }
+        }
+    }
+    publications {
+        archives(MavenPublication) {
+            artifact packageModel
+        }
+    }
 }
