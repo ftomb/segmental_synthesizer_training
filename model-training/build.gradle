@@ -1,11 +1,11 @@
+evaluationDependsOn(':data-preparation')
+
 dependencies {
     data project(path: ':data-preparation', configuration: 'archives')
 }
 
 task unpackData(type: Copy) {
-    from configurations.data.files.collect { zipFile ->
-        zipTree(zipFile)
-    }
+    from configurations.data
     into "$buildDir/data"
 }
 
