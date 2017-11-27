@@ -7,6 +7,13 @@ dependencies {
 task unpackData(type: Copy) {
     from configurations.data
     into "$buildDir/data"
+    filesMatching '*.zip', { zipFileDetails ->
+        copy {
+            from zipTree(zipFileDetails.file)
+            into destinationDir
+        }
+        zipFileDetails.exclude()
+    }
 }
 
 task trainNetwork(type: PyExec) {
