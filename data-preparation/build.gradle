@@ -129,7 +129,12 @@ task normalize_output_features(type: PyExec) {
 }
 
 task packageData(type: Zip) {
-    from normalize_input_features, normalize_output_features
+    from normalize_input_features, {
+        rename { "normalized_input_features/$it" }
+    }
+    from normalize_output_features, {
+        rename { "normalized_output_features/$it" }
+    }
 }
 
 artifacts {
