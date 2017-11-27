@@ -1,7 +1,7 @@
-evaluationDependsOn(':data-preparation')
+evaluationDependsOn(':data')
 
 dependencies {
-    data project(path: ':data-preparation', configuration: 'archives')
+    data project(path: ':data', configuration: 'archives')
 }
 
 task unpackData(type: Copy) {
