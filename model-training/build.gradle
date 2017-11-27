@@ -18,8 +18,8 @@ task unpackData(type: Copy) {
 
 task trainNetwork(type: PyExec) {
     dependsOn unpackData
-    srcFiles = [file("$buildDir/normalized_input_features"),
-                file("$buildDir/normalized_output_features")]
+    srcFiles = [file("$buildDir/data/normalized_input_features"),
+                file("$buildDir/data/normalized_output_features")]
     destDirs = file("$buildDir/FFNN_models")
     pyFile = file("07_FFNN.py")
     args += srcFiles + [destDirs]
