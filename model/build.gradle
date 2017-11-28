@@ -36,8 +36,10 @@ artifacts {
 
 publishing {
     publications {
-        archives(MavenPublication) {
-            artifact packageModel
+        model(MavenPublication) {
+            artifact packageModel, {
+                artifactId "blizzard2017-f0-dnn-model"
+            }
         }
     }
 }
