@@ -26,8 +26,12 @@ task trainNetwork(type: PyExec) {
 }
 
 task packageModel(type: Zip) {
-    from trainNetwork
-    include 'frozen_model'
+    from trainNetwork, {
+        include 'frozen_model'
+    }
+    from unpackData, {
+        include '*.pickle', '*.dict'
+    }
 }
 
 artifacts {

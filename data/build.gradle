@@ -135,6 +135,7 @@ task packageData(type: Zip) {
     from normalize_output_features, {
         rename { "normalized_output_features/$it" }
     }
+    from calculate_input_mean, calculate_output_mean, generate_phone_dict
 }
 
 artifacts {
