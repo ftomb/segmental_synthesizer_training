@@ -6,7 +6,7 @@ dependencies {
 
 task unpackData(type: Copy) {
     from configurations.data
-    into "$buildDir/data"
+    into "$buildDir"
     filesMatching '*.zip', { zipFileDetails ->
         copy {
             from zipTree(zipFileDetails.file)
@@ -16,13 +16,18 @@ task unpackData(type: Copy) {
     }
 }
 
+/*
+add a task to get the file with the train_test_valid data splits from the f0 gradle project
+*/
+
+
 task trainNetwork(type: PyExec) {
     dependsOn unpackData
-    srcFiles = [file("$buildDir/data/normalized_input_features"),
-                file("$buildDir/data/normalized_output_features")]
-    destDirs = file("$buildDir/FFNN_models")
-    pyFile = file("07_FFNN.py")
-    args += srcFiles + [destDirs]
+    srcFiles = [file("$buildDir/11_split_train_test_valid"), file("$buildDir/09_normalized_input_features"),
+                file("$buildDir/10_normalized_output_features")]
+    destDirs = [file("$buildDir/12_FFNN_models"), file("$buildDir/13_frozen_models")
+    pyFile = file("08_FFNN.py")
+    args += srcFiles + destDirs
 }
 
 task packageModel(type: Zip) {
@@ -30,7 +35,7 @@ task packageModel(type: Zip) {
         include 'frozen_model'
     }
     from unpackData, {
-        include '*.pickle', '*.dict'
+        include '*.json', '*.dict'
     }
 }
 
