@@ -34,43 +34,15 @@ task unpackData(type: Copy) {
 task resample(type: PyExec) {
     dependsOn unpackData
     srcFiles = file("$buildDir/data/wav-$blizzardDataVersion/wav")
-    destDirs = file("$buildDir/wav_")
+    destDirs = file("$buildDir/01_resampled_wav")
     pyFile = file("scripts/00_resample.py")
     args += [srcFiles, destDirs]
 }
 
-task extract_f0(type: PyExec) {
-    dependsOn resample, praat
-    srcFiles = file("$buildDir/wav_")
-    destDirs = file("$buildDir/f0")
-    pyFile = file("scripts/00a_extract_f0.py")
-    def praatFile = file("scripts/00b_praat_script.praat")
-    inputs.files praatFile
-    args += [srcFiles, destDirs, praat.binary, praatFile]
-}
-
-task packageF0(type: Zip) {
-    from extract_f0
-}
-
-task check_extracted_f0 {
-    dependsOn extract_f0
-    doLast {
-        def filesWithUndefinedFrames = []
-        fileTree("$buildDir/f0").include('*.f0').each { f0File ->
-            if (f0File.text.contains('--undefined--')) {
-                filesWithUndefinedFrames << f0File
-            }
-        }
-        assert !filesWithUndefinedFrames: "Undefined F0 frames!"
-    }
-    extract_f0.finalizedBy it
-}
-
 task extract_output_features(type: PyExec) {
     dependsOn resample
-    srcFiles = file("$buildDir/wav_")
-    destDirs = [file("$buildDir/output_features"), file("$buildDir/extraction_times/")]
+    srcFiles = file("$buildDir/01_resampled_wav")
+    destDirs = [file("$buildDir/02_output_features"), file("$buildDir/03_extraction_times/"), file("$buildDir/04_f0/")]
     pyFile = file("scripts/01_extract_output_features.py")
     args += [srcFiles] + destDirs
 }
@@ -78,62 +50,62 @@ task extract_output_features(type: PyExec) {
 task generate_phone_dict(type: PyExec) {
     dependsOn unpackData
     srcFiles = file("$buildDir/data/lab-$blizzardDataVersion/TextGrid")
-    destDirs = file("$buildDir/phone_dictionary")
+    destDirs = file("$buildDir/05_phone_dictionary")
     pyFile = file("scripts/02_phone_dict.py")
     args += [srcFiles, destDirs]
 }
 
 task extract_input_features(type: PyExec) {
-    dependsOn extract_f0, extract_output_features, generate_phone_dict
-    srcFiles = [file("$buildDir/extraction_times"),
-                file("$buildDir/data/lab-$blizzardDataVersion/TextGrid"),
-                file("$buildDir/phone_dictionary"),
-                file("$buildDir/f0")]
-    destDirs = file("$buildDir/input_features")
+    dependsOn extract_output_features, generate_phone_dict
+    srcFiles = [file("$buildDir/03_extraction_times"),
+                srcFiles = file("$buildDir/data/lab-$blizzardDataVersion/TextGrid"),
+                file("$buildDir/05_phone_dictionary"),
+                file("$buildDir/04_f0")]
+    destDirs = file("$buildDir/06_input_features")
     pyFile = file("scripts/03_extract_input_features.py")
     args += srcFiles + [destDirs]
 }
 
 task calculate_input_mean(type: PyExec) {
     dependsOn extract_input_features
-    srcFiles = file("$buildDir/input_features")
-    destDirs = file("$buildDir/input_mean_std")
+    srcFiles = file("$buildDir/06_input_features")
+    destDirs = file("$buildDir/07_input_mean_std")
     pyFile = file("scripts/04_calculate_input_mean_std.py")
     args += [srcFiles, destDirs]
 }
 
 task calculate_output_mean(type: PyExec) {
     dependsOn extract_output_features
-    srcFiles = file("$buildDir/output_features")
-    destDirs = file("$buildDir/output_mean_std")
-    pyFile = file("scripts/04_calculate_output_mean_std.py")
+    srcFiles = file("$buildDir/02_output_features")
+    destDirs = file("$buildDir/08_output_mean_std")
+    pyFile = file("scripts/05_calculate_output_mean_std.py")
     args += [srcFiles, destDirs]
 }
 
 task normalize_input_features(type: PyExec) {
     dependsOn extract_input_features, calculate_input_mean
-    srcFiles = [file("$buildDir/input_mean_std"),
-                file("$buildDir/input_features")]
-    destDirs = file("$buildDir/normalized_input_features")
-    pyFile = file("scripts/05_normalize_input_features.py")
+    srcFiles = [file("$buildDir/07_input_mean_std"),
+                file("$buildDir/06_input_features")]
+    destDirs = file("$buildDir/09_normalized_input_features")
+    pyFile = file("scripts/06_normalize_input_features.py")
     args += srcFiles + [destDirs]
 }
 
 task normalize_output_features(type: PyExec) {
     dependsOn extract_output_features, calculate_output_mean
-    srcFiles = [file("$buildDir/output_mean_std"),
-                file("$buildDir/output_features")]
-    destDirs = file("$buildDir/normalized_output_features")
-    pyFile = file("scripts/06_normalize_output_features.py")
+    srcFiles = [file("$buildDir/08_output_mean_std"),
+                file("$buildDir/02_output_features")]
+    destDirs = file("$buildDir/10_normalized_output_features")
+    pyFile = file("scripts/07_normalize_output_features.py")
     args += srcFiles + [destDirs]
 }
 
 task packageData(type: Zip) {
     from normalize_input_features, {
-        rename { "normalized_input_features/$it" }
+        rename { "09_normalized_input_features/$it" }
     }
     from normalize_output_features, {
-        rename { "normalized_output_features/$it" }
+        rename { "10_normalized_output_features/$it" }
     }
     from calculate_input_mean, calculate_output_mean, generate_phone_dict
 }

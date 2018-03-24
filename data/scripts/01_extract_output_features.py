@@ -1,73 +1,132 @@
+from scipy import interpolate as interp
 from scipy.interpolate import interp1d
 from multiprocessing import Pool
+import matplotlib.pyplot as plt
 from scipy.io import wavfile
+from scipy import signal
 import pyworld as pw 
 import numpy as np
 import pysptk
-import pickle
+import json
 import sys
 import os
 
-def interpolate(y):
 
-	if y[0] == 0:
-		for i, v in enumerate(y):
-			if v != 0:
-				y[0] = v
-				break
+def load_titles(target_path, ext):
+	titles = []
+	for fn in os.listdir(target_path):
+		basename, extension = os.path.splitext(fn)
+		if extension == ext:
+			titles.append(basename)
+	return titles
 
-	if y[-1] == 0:
-		for i in reversed(range(len(y))):
-			if y[i] != 0:
-				y[-1] = y[i]
-				break
+def interpolate_f0(f0s):
 
-	x = np.arange(len(y))
-	idx = np.nonzero(y)
-	interp = interp1d(x[idx],y[idx])
-	
-	return interp(x).reshape((len(interp(x)), 1))
+	f0s = [np.log2(float(f0)) if f0 > 0 else f0 for f0 in f0s]
 
+	org = f0s
+	f0s_len = len(f0s)
 
-def extract_features(title, wav_path, bap_mgc_path, times_path):
-	
-	fs = 48000
-	wav_stream = wavfile.read(os.path.join(wav_path, title + '.wav'))
-	wav_stream = np.array(wav_stream[1], dtype=float)
-	x = np.array(wav_stream, dtype=np.float64)
+	times_f0s = [[i*0.005, f0] for i, f0 in enumerate(f0s)]
 
-	_f0, ts = pw.dio(x, fs)    # raw pitch extractor
+	start_time = times_f0s[0][0]
+	end_time = times_f0s[-1][0]
 
-	f0 = pw.stonemask(x, _f0, ts, fs)  # pitch refinement
-	sp = pw.cheaptrick(x, f0, ts, fs)  # extract smoothed spectrogram
-	ap = pw.d4c(x, f0, ts, fs)         # extract aperiodicity
+	no_zeros = [pair for pair in times_f0s if pair[1] > 0.0]
+	f0_timepoints = [start_time]+[pair[0] for pair in no_zeros]+[end_time]
 
-	mgc = pysptk.sp2mc(sp, order=50, alpha=pysptk.util.mcepalpha(fs))
-	bap = pysptk.sp2mc(ap, order=1, alpha=pysptk.util.mcepalpha(fs))
-	bap = np.array([[j if abs(j-0) > 0.01 else 0 for j in i] for i in bap], dtype=np.float64)
+	f0s =[pair[1] for pair in no_zeros]
+	f0s = [f0s[0]]+f0s+[f0s[-1]]
 
-	vuv = np.array([[0] if i[1] == 0 else [1] for i in bap], dtype=np.float64)
-	bap = np.concatenate([interpolate(v.flatten()) for v in np.split(bap, 2, axis=1)], axis=1)
+	f = interp.interp1d(f0_timepoints, f0s, kind='linear')
+	x = np.linspace(start_time, end_time, f0s_len)
+	return np.exp2(f(x))
 
-	output_vector = np.concatenate((vuv, bap, mgc), axis=1)
+def interpolate_bap(baps):
 
-	with open(os.path.join(bap_mgc_path, title + ".bap_mgc"), "wb") as f:
-		pickle.dump(output_vector, f)
+	baps = [float(bap) for bap in baps]
+	org = baps
+	baps_len = len(baps)
 
-	with open(os.path.join(times_path, title + ".times"), "wb") as g:
-		pickle.dump(ts, g)
+	times_baps = [[i*0.005, bap] for i, bap in enumerate(baps)]
+
+	start_time = times_baps[0][0]
+	end_time = times_baps[-1][0]
+
+	no_zeros = [pair for pair in times_baps if pair[1] < -0.00000001 or pair[1] > 0.00000001]
+	bap_timepoints = [start_time]+[pair[0] for pair in no_zeros]+[end_time]
+
+	baps =[pair[1] for pair in no_zeros]
+	baps = [baps[0]]+baps+[baps[-1]]
+
+	f = interp.interp1d(bap_timepoints, baps, kind='linear')
+	x = np.linspace(start_time, end_time, baps_len)
+	return [[v] for v in f(x)]
+
+def preemphasis(x, coef=0.97):
+	# is preemphasis only useful for asr or does it help for tts as well??
+    b = np.array([1., -coef], x.dtype)
+    a = np.array([1.], x.dtype)
+    return signal.lfilter(b, a, x)
+
+def inv_preemphasis(x, coef=0.97):
+    b = np.array([1.], x.dtype)
+    a = np.array([1., -coef], x.dtype)
+    return signal.lfilter(b, a, x)
+
+def extract_features(title, wav_path, bap_mgc_path, times_path, f0_path):
+
+	try:
+
+		fs = 48000
+
+		wav_stream = wavfile.read(os.path.join(wav_path, title + '.wav'))
+		wav_stream = np.array(wav_stream[1], dtype=float)
+
+		x = np.array(wav_stream, dtype=np.float64)
+		_f0, ts = pw.dio(x, fs)    # raw pitch extractor
+
+		f0 = pw.stonemask(x, _f0, ts, fs)  # pitch refinement
+		sp = pw.cheaptrick(x, f0, ts, fs)  # extract smoothed spectrogram
+		ap = pw.d4c(x, f0, ts, fs)         # extract aperiodicity
+
+		mgc = pysptk.sp2mc(sp, order=60, alpha=pysptk.util.mcepalpha(fs))
+		bap = pysptk.sp2mc(ap, order=5, alpha=pysptk.util.mcepalpha(fs))
+		bap = np.concatenate([interpolate_bap(col.flatten()) for col in np.split(bap, len(bap[0]), axis=1)], axis=1)
+
+		vuv = np.array([[0] if i == 0 else [1] for i in f0], dtype=np.float64)
+		f0 = interpolate_f0(f0)
+
+		output_vector = np.concatenate((vuv, bap, mgc), axis=1)
+
+		with open(os.path.join(f0_path, title + ".f0"), "w") as h:
+			json.dump(f0.tolist(), h)
+
+		with open(os.path.join(bap_mgc_path, title + ".bap_mgc"), "w") as f:
+			json.dump(output_vector.tolist(), f)
+
+		with open(os.path.join(times_path, title + ".times"), "w") as g:
+			json.dump(ts.tolist(), g)
+
+	except:
+		print('failed:', title)
+		pass
+
 	
 if __name__ == '__main__':
+
 
 	wav_path = sys.argv[1]
 	bap_mgc_path = sys.argv[2]
 	times_path = sys.argv[3]
+	f0_path = sys.argv[4]
 
-	titles = []
-	for fn in os.listdir(wav_path):
-		basename, extension = os.path.splitext(fn)
-		if extension == '.wav':
-			titles.append(basename)
+	#wav_path = '../build/01_resampled_wav'
+	#bap_mgc_path = 'data/output_features'
+	#times_path = 'data/times'
+	#f0_path = 'data/f0'
+
+	titles = load_titles(wav_path, '.wav')
 
 	p = Pool()
-	p.starmap(extract_features, [(title, wav_path, bap_mgc_path, times_path) for title in titles])
+	p.starmap(extract_features, [(title, wav_path, bap_mgc_path, times_path, f0_path) for title in titles])
