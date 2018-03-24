@@ -230,7 +230,7 @@ if __name__ == '__main__':
 
 			copyfile(os.path.join(FFNN_models_path,'frozen_model'+'_'+str(e)), os.path.join(frozen_models_path,'frozen_model'+'_'+str(e)))				
 
-			if e > 24
+			if e > 24:
 				break
 
 
