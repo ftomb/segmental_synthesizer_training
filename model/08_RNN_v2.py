@@ -101,9 +101,13 @@ if __name__ == '__main__':
 	#FFNN_models_path = '12_FFNN_models'
 	#frozen_models_path = '13_frozen_models'
 
+	with open(os.path.join(split_train_test_valid_path, 'split_titles.json')) as f:    
+		titles_json = json.load(f)
+	train_titles = titles_json['train']
+
 	input_titles = load_titles(normalized_input_features_path, '.json')
 	output_titles = load_titles(normalized_output_features_path, '.bap_mgc')
-	titles = sorted(set(input_titles).intersection(output_titles))
+	titles = sorted(set(input_titles).intersection(output_titles).intersection(train_titles))
 
 	X_d = len(load_input_title(titles[0], normalized_input_features_path)[0])
 	Y_d = len(load_output_title(titles[0], normalized_output_features_path)[0])
@@ -162,8 +166,4 @@ if __name__ == '__main__':
 
 			if e > 100:
 				break
-
-
-
-
 
