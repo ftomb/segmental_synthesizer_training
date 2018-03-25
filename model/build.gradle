@@ -1,4 +1,8 @@
 evaluationDependsOn(':data')
+/*
+
+add a task to get the file with the train_test_valid data splits from the f0 gradle project
+
 
 dependencies {
     data project(path: ':data', configuration: 'archives')
@@ -16,8 +20,8 @@ task unpackData(type: Copy) {
     }
 }
 
-/*
-add a task to get the file with the train_test_valid data splits from the f0 gradle project
+
+
 */
 
 
@@ -29,6 +33,20 @@ task trainNetwork(type: PyExec) {
     pyFile = file("08_RNN_v2.py")
     args += srcFiles + destDirs
 }
+
+
+
+/*
+
+"model" should be a folder with the following structure:
+
+    -model:
+        -frozen_model
+        -input_std
+        -output_std
+        -phone_dict
+
+
 
 task packageModel(type: Zip) {
     from trainNetwork, {
@@ -52,3 +70,4 @@ publishing {
         }
     }
 }
+*/
