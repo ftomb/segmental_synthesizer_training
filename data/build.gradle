@@ -42,7 +42,7 @@ task resample(type: PyExec) {
 task extract_output_features(type: PyExec) {
     dependsOn resample
     srcFiles = file("$buildDir/01_resampled_wav")
-    destDirs = [file("$buildDir/02_output_features"), file("$buildDir/03_extraction_times/"), file("$buildDir/04_f0/")]
+    destDirs = [file("$buildDir/02_output_features"), file("$buildDir/03_extraction_times/"), file("$buildDir/04_lf0/")]
     pyFile = file("scripts/01_extract_output_features.py")
     args += [srcFiles] + destDirs
 }
@@ -60,7 +60,7 @@ task extract_input_features(type: PyExec) {
     srcFiles = [file("$buildDir/03_extraction_times"),
                 srcFiles = file("$buildDir/data/lab-$blizzardDataVersion/TextGrid"),
                 file("$buildDir/05_phone_dictionary"),
-                file("$buildDir/04_f0")]
+                file("$buildDir/04_lf0")]
     destDirs = file("$buildDir/06_input_features")
     pyFile = file("scripts/03_extract_input_features.py")
     args += srcFiles + [destDirs]
