@@ -40,7 +40,7 @@ def interpolate_f0(f0s):
 
 	f = interp.interp1d(f0_timepoints, f0s, kind='linear')
 	x = np.linspace(start_time, end_time, f0s_len)
-	return np.exp2(f(x))
+	return np.array([[f0] for f0 in f(x)], dtype=np.float64)
 
 def interpolate_bap(baps):
 
@@ -74,7 +74,27 @@ def inv_preemphasis(x, coef=0.97):
     a = np.array([1., -coef], x.dtype)
     return signal.lfilter(b, a, x)
 
-def extract_features(title, wav_path, bap_mgc_path, times_path, f0_path):
+def _delta(x, window):
+    return np.correlate(x, window, mode="same")
+
+def _apply_delta_window(x, window):
+    T, D = x.shape
+    y = np.zeros_like(x)
+    for d in range(D):
+        y[:, d] = _delta(x[:, d], window)
+    return y
+
+def delta_features(x):
+    windows = [(0, 0, np.array([1.0])), (1, 1, np.array([-0.5, 0.0, 0.5])), (1, 1, np.array([1.0, -2.0, 1.0]))]
+    T, D = x.shape
+    assert len(windows) > 0
+    combined_features = np.empty((T, D * len(windows)), dtype=x.dtype)
+    for idx, (_, _, window) in enumerate(windows):
+        combined_features[:, D * idx:D * idx +
+                          D] = _apply_delta_window(x, window)
+    return combined_features
+
+def extract_features(title, wav_path, bap_mgc_path, times_path, f0_path, delta):
 
 	try:
 
@@ -95,12 +115,18 @@ def extract_features(title, wav_path, bap_mgc_path, times_path, f0_path):
 		bap = np.concatenate([interpolate_bap(col.flatten()) for col in np.split(bap, len(bap[0]), axis=1)], axis=1)
 
 		vuv = np.array([[0] if i == 0 else [1] for i in f0], dtype=np.float64)
-		f0 = interpolate_f0(f0)
+
+		lf0 = interpolate_f0(f0)
+
+		if delta==True:
+			lf0 = delta_features(lf0)
+			bap = delta_features(bap)
+			mgc = delta_features(mgc)
 
 		output_vector = np.concatenate((vuv, bap, mgc), axis=1)
 
-		with open(os.path.join(f0_path, title + ".f0"), "w") as h:
-			json.dump(f0.tolist(), h)
+		with open(os.path.join(f0_path, title + ".lf0"), "w") as h:
+			json.dump(lf0.tolist(), h)
 
 		with open(os.path.join(bap_mgc_path, title + ".bap_mgc"), "w") as f:
 			json.dump(output_vector.tolist(), f)
@@ -109,8 +135,8 @@ def extract_features(title, wav_path, bap_mgc_path, times_path, f0_path):
 			json.dump(ts.tolist(), g)
 
 	except:
-		print('failed:', title)
-		pass
+		print(title, 'failed!')
+
 
 	
 if __name__ == '__main__':
@@ -122,11 +148,15 @@ if __name__ == '__main__':
 	f0_path = sys.argv[4]
 
 	#wav_path = '../build/01_resampled_wav'
-	#bap_mgc_path = 'data/output_features'
-	#times_path = 'data/times'
-	#f0_path = 'data/f0'
+	#bap_mgc_path = '../build/02_output_features'
+	#times_path = '../build/03_extraction_times'
+	#lf0_path = '../build/04_lf0'
 
 	titles = load_titles(wav_path, '.wav')
 
+	# if delta==True use delta features as well
+	delta = True
+
 	p = Pool()
-	p.starmap(extract_features, [(title, wav_path, bap_mgc_path, times_path, f0_path) for title in titles])
+	p.starmap(extract_features, [(title, wav_path, bap_mgc_path, times_path, f0_path, delta) for title in titles])
+

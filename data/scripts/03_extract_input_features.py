@@ -33,7 +33,7 @@ def process_phones(l, sil):
 	
 	return l, l_ph_befs, l_ph_bef_befs, l_ph_afts, l_ph_aft_afts, l_perc, l_ph_lens
 
-def extract_features(title, times_path, textgrid_path, phone_dict_path, f0_path, input_features_path):
+def extract_features(title, times_path, textgrid_path, phone_dict_path, lf0_path, input_features_path):
 
 	sil = 'sil'
 	# get the times 
@@ -64,10 +64,8 @@ def extract_features(title, times_path, textgrid_path, phone_dict_path, f0_path,
 	hot_ph_a = np.array([ph_dict[i] for i in ph_a])
 	hot_ph_a_a = np.array([ph_dict[i] for i in ph_a_a])
 
-	with open(os.path.join(f0_path, title + '.f0'), "r") as f:
-		f0s = json.load(f)
-		f0 = [[f0] for f0 in f0s]
-		lf0 = np.log2(f0, dtype=np.float64)
+	with open(os.path.join(lf0_path, title + '.lf0'), "r") as f:
+		lf0 = json.load(f)
 
 	input_vector = np.concatenate((hot_ph, hot_ph_b, hot_ph_b_b, hot_ph_a, hot_ph_a_a, ph_perc, np.divide(ph_len, 100), np.divide(lf0, 10)), axis=1)
 
@@ -81,20 +79,20 @@ if __name__ == '__main__':
 	times_path = sys.argv[1]
 	textgrid_path = sys.argv[2]
 	phone_dict_path = sys.argv[3]
-	f0_path = sys.argv[4]
+	lf0_path = sys.argv[4]
 	input_features_path = sys.argv[5]
 
 	#times_path = '../build/03_extraction_times'
 	#textgrid_path = '../build/00_textgrid'
 	#phone_dict_path = '../build/05_phone_dictionary'
-	#f0_path = '../build/04_f0'
+	#lf0_path = '../build/04_lf0'
 	#input_features_path = '../build/06_input_features'
 
 	times_titles = load_titles(times_path, '.times')
 	textgrid_titles = load_titles(textgrid_path, '.TextGrid')
-	f0_titles = load_titles(f0_path, '.f0')
+	lf0_titles = load_titles(lf0_path, '.lf0')
 
-	titles = set(times_titles).intersection(textgrid_titles).intersection(f0_titles)
+	titles = set(times_titles).intersection(textgrid_titles).intersection(lf0_titles)
 
 	p = Pool()
-	p.starmap(extract_features, [(title, times_path, textgrid_path, phone_dict_path, f0_path, input_features_path) for title in titles])
+	p.starmap(extract_features, [(title, times_path, textgrid_path, phone_dict_path, lf0_path, input_features_path) for title in titles])
