@@ -88,7 +88,7 @@ task trainNetwork(type: PyExec) {
 def task_list = []
 (1..n_epochs).each  { counter ->
     def current_task = task "synthesize_${counter}"(type: PyExec) {
-        //dependsOn trainNetwork
+        dependsOn trainNetwork
         srcFiles = [file("$buildDir/09_normalized_input_features"), file("$buildDir/04_lf0"), file("$buildDir/13_frozen_models"), file("$buildDir/08_output_mean_std"), counter.toString(), file("$buildDir/11_split_test_train_valid")]
         destDirs = file("$buildDir/14_wav")
         pyFile = file("scripts/10_synthesize_v2.py")
