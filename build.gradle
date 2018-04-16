@@ -1,5 +1,5 @@
 
-def n_epochs = 50
+def n_epochs = 25
 
 task resample(type: PyExec) {
     srcFiles = file("src/wav")
