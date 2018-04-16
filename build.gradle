@@ -1,20 +1,105 @@
-subprojects {
-    apply plugin: 'base'
-    apply plugin: 'maven-publish'
 
-    configurations {
-        data
-    }
+def n_epochs = 10
 
-    publishing {
-        repositories {
-            maven {
-                url "http://cloudark:8081/artifactory/data-${version.endsWith('-SNAPSHOT') ? 'snapshot' : 'release'}-local"
-                credentials {
-                    username = findProperty('cloudarkUser')
-                    password = findProperty('cloudarkApiKey')
-                }
-            }
-        }
+task resample(type: PyExec) {
+    srcFiles = file("src/wav")
+    destDirs = file("$buildDir/01_resampled_wav")
+    pyFile = file("scripts/00_resample.py")
+    args += [srcFiles, destDirs]
+}
+
+task extract_output_features(type: PyExec) {
+    dependsOn resample
+    srcFiles = file("$buildDir/01_resampled_wav")
+    destDirs = [file("$buildDir/02_output_features"), file("$buildDir/03_extraction_times/"), file("$buildDir/04_lf0/")]
+    pyFile = file("scripts/01_extract_output_features.py")
+    args += [srcFiles] + destDirs
+}
+
+task generate_phone_dict(type: PyExec) {
+    srcFiles = file("src/textgrid")
+    destDirs = file("$buildDir/05_phone_dictionary")
+    pyFile = file("scripts/02_phone_dict.py")
+    args += [srcFiles, destDirs]
+}
+
+task extract_input_features(type: PyExec) {
+    dependsOn extract_output_features, generate_phone_dict
+    srcFiles = [file("$buildDir/03_extraction_times"),
+                srcFiles = file("src/textgrid"),
+                file("$buildDir/05_phone_dictionary"),
+                file("$buildDir/04_lf0")]
+    destDirs = file("$buildDir/06_input_features")
+    pyFile = file("scripts/03_extract_input_features.py")
+    args += srcFiles + [destDirs]
+}
+
+task calculate_input_mean(type: PyExec) {
+    dependsOn extract_input_features
+    srcFiles = file("$buildDir/06_input_features")
+    destDirs = file("$buildDir/07_input_mean_std")
+    pyFile = file("scripts/04_calculate_input_mean_std.py")
+    args += [srcFiles, destDirs]
+}
+
+task calculate_output_mean(type: PyExec) {
+    dependsOn extract_output_features
+    srcFiles = file("$buildDir/02_output_features")
+    destDirs = file("$buildDir/08_output_mean_std")
+    pyFile = file("scripts/05_calculate_output_mean_std.py")
+    args += [srcFiles, destDirs]
+}
+
+task normalize_input_features(type: PyExec) {
+    dependsOn extract_input_features, calculate_input_mean
+    srcFiles = [file("$buildDir/07_input_mean_std"),
+                file("$buildDir/06_input_features")]
+    destDirs = file("$buildDir/09_normalized_input_features")
+    pyFile = file("scripts/06_normalize_input_features.py")
+    args += srcFiles + [destDirs]
+}
+
+task normalize_output_features(type: PyExec) {
+    dependsOn extract_output_features, calculate_output_mean
+    srcFiles = [file("$buildDir/08_output_mean_std"),
+                file("$buildDir/02_output_features")]
+    destDirs = file("$buildDir/10_normalized_output_features")
+    pyFile = file("scripts/07_normalize_output_features.py")
+    args += srcFiles + [destDirs]
+}
+
+task split_test_train_valid(type: PyExec){
+    dependsOn normalize_input_features, normalize_output_features
+    srcFiles = [file("$buildDir/09_normalized_input_features"), file("$buildDir/10_normalized_output_features")]
+    destDirs = file("$buildDir/11_split_test_train_valid")
+    pyFile = file("scripts/08_split_test_train_valid.py")
+    args += srcFiles + [destDirs]
+}
+
+task trainNetwork(type: PyExec) {
+    dependsOn split_test_train_valid
+    srcFiles = [file("$buildDir/11_split_test_train_valid"), file("$buildDir/09_normalized_input_features"),
+                file("$buildDir/10_normalized_output_features"), n_epochs.toString()]
+    destDirs = [file("$buildDir/12_FFNN_models"), file("$buildDir/13_frozen_models")]
+    pyFile = file("scripts/09_RNN_v2.py")
+    args += srcFiles + destDirs
+}
+
+def task_list = []
+(1..n_epochs).each  { counter ->
+    def current_task = task "synthesize_${counter}"(type: PyExec) {
+        //dependsOn trainNetwork
+        srcFiles = [file("$buildDir/09_normalized_input_features"), file("$buildDir/04_lf0"), file("$buildDir/13_frozen_models"), file("$buildDir/08_output_mean_std"), counter.toString(), file("$buildDir/11_split_test_train_valid")]
+        destDirs = file("$buildDir/14_wav")
+        pyFile = file("scripts/10_synthesize_v2.py")
+        args += srcFiles + [destDirs]
     }
+    task_list.add(current_task)
+}
+
+def reversed_task_list = task_list.reverse()
+(0..reversed_task_list.size()-2).each { i ->
+    def next_task = reversed_task_list[i]
+    def prev_task = reversed_task_list[i+1]
+    next_task.dependsOn prev_task
 }

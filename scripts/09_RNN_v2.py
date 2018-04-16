@@ -35,7 +35,7 @@ def bias(d2):
 	return tf.Variable(tf.zeros([d2]))
 
 def rnn_cell(recurrent_nodes):
-	return tf.nn.rnn_cell.GRUCell(num_units=recurrent_nodes, activation=tf.nn.selu)
+	return tf.nn.rnn_cell.GRUCell(num_units=recurrent_nodes, activation=tf.nn.elu)
 
 def rnn_layer(X, cell):
 	return tf.nn.dynamic_rnn(cell=cell, inputs=X, dtype=tf.float32)
@@ -92,18 +92,22 @@ if __name__ == '__main__':
 	split_train_test_valid_path = sys.argv[1]
 	normalized_input_features_path = sys.argv[2]
 	normalized_output_features_path = sys.argv[3]
-	FFNN_models_path = sys.argv[4]
-	frozen_models_path = sys.argv[5]
+	n_epochs = int(sys.argv[4])
+	FFNN_models_path = sys.argv[5]
+	frozen_models_path = sys.argv[6]
 
-	#split_train_test_valid_path = '11_split_train_test_valid'
-	#normalized_input_features_path = '09_normalized_input_features'
-	#normalized_output_features_path = '10_normalized_output_features'
-	#FFNN_models_path = '12_FFNN_models'
-	#frozen_models_path = '13_frozen_models'
+	#split_train_test_valid_path = '../build/11_split_test_train_valid'
+	#normalized_input_features_path = '../build/09_normalized_input_features'
+	#normalized_output_features_path = '../build/10_normalized_output_features'
+	#n_epochs = 3
+	#FFNN_models_path = '../build/12_FFNN_models'
+	#frozen_models_path = '../build/13_frozen_models'
 
 	with open(os.path.join(split_train_test_valid_path, 'split_titles.json')) as f:    
 		titles_json = json.load(f)
 	train_titles = titles_json['train']
+	#train_titles = train_titles[:1]
+	print(train_titles)
 
 	input_titles = load_titles(normalized_input_features_path, '.json')
 	output_titles = load_titles(normalized_output_features_path, '.bap_mgc')
@@ -164,6 +168,6 @@ if __name__ == '__main__':
 
 				copyfile(os.path.join(FFNN_models_path,'frozen_model'+'_'+str(e)), os.path.join(frozen_models_path,'frozen_model'+'_'+str(e)))				
 
-			if e > 100:
+			if e >= n_epochs:
 				break
 

@@ -1,3 +1,0 @@
-rootProject.name = 'segmental_synthesizer_model'
-include 'data'
-include 'model'
