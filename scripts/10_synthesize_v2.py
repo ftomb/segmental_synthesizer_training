@@ -59,7 +59,7 @@ def synthesize_title(title, lf0_path, input_features_path, model_path, output_me
 	# Load NN Model 
 	print('Loading Model...')
 
-	with tf.gfile.GFile(os.path.join(model_path, 'frozen_model_2'), "rb") as f:
+	with tf.gfile.GFile(os.path.join(model_path, 'frozen_model_'+n_epochs), "rb") as f:
 		graph_def = tf.GraphDef()
 		graph_def.ParseFromString(f.read())
 
