@@ -35,7 +35,7 @@ def bias(d2):
 	return tf.Variable(tf.zeros([d2]))
 
 def rnn_cell(recurrent_nodes):
-	return tf.nn.rnn_cell.GRUCell(num_units=recurrent_nodes, activation=tf.nn.elu)
+	return tf.nn.rnn_cell.GRUCell(num_units=recurrent_nodes, activation=tf.nn.selu)
 
 def rnn_layer(X, cell):
 	return tf.nn.dynamic_rnn(cell=cell, inputs=X, dtype=tf.float32)
@@ -74,12 +74,17 @@ def RNN(X_d, hidden_nodes, Y_d):
 		with tf.variable_scope('fw_2'):
 			cell_fw_2 = rnn_cell(hidden_nodes*2)
 		outputs2, states2 = rnn_layer(outputs1, cell_fw_2)
-	outputs2 = tf.concat(outputs2, 2)
-	outputs2_reshaped = tf.reshape(outputs2, [-1, hidden_nodes*2])
+		
+	with tf.variable_scope('gru_3', initializer=tf.orthogonal_initializer(gain=tf.sqrt(2.0))):
+		with tf.variable_scope('fw_3'):
+			cell_fw_3 = rnn_cell(hidden_nodes*2)
+		outputs3, states3 = rnn_layer(outputs2, cell_fw_3)
+		
+	outputs3_reshaped = tf.reshape(outputs3, [-1, hidden_nodes*2])
 
 	W = weight(hidden_nodes*2, Y_d)
 	B = bias(Y_d)
-	Y_ = tf.identity(combine(outputs2_reshaped, W, B), name='Y_')
+	Y_ = tf.identity(combine(outputs3_reshaped, W, B), name='Y_')
 	Y = tf.placeholder(tf.float32, [None, Y_d], name='Y')
 
 	loss = calculate_rmse(Y_, Y)
